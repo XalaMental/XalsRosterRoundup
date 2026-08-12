@@ -1,0 +1,23 @@
+## Interface: 120100, 120007
+## Title: Xal's Roster Roundup
+## Notes: Guild member roster & profile helper for guild officers.
+## Author: Xal
+## Version: 1.0.0
+## X-Curse-Project-ID: 1649210
+## IconTexture: Interface\AddOns\XalsRosterRoundup\Icon.png
+## SavedVariables: XRR_DB
+## SavedVariablesPerCharacter: XRR_CharDB
+
+# Load order: libs -> Core (creates the shared XRR table) -> shared brand ->
+# data model -> UI panels -> minimap button (registers on PLAYER_LOGIN, needs
+# GuildPanel/Options to already exist)
+libs\LibStub\LibStub.lua
+libs\CallbackHandler\CallbackHandler-1.0.lua
+libs\LibDataBroker\LibDataBroker-1.1.lua
+libs\LibDBIcon\LibDBIcon-1.0.lua
+Core.lua
+BrandStyle.lua
+Roster.lua
+GuildPanel.lua
+Options.lua
+MinimapButton.lua
