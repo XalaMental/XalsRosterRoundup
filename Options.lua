@@ -196,32 +196,39 @@ local function BuildData(content)
     cb.OnToggle = function(self)
         XRR_DB.storageScope = self:GetChecked() and "character" or "account"
     end
+
+    -- Confirmed 2026-08-12: switching to per-character storage silos each
+    -- character's roster copy, which also breaks the Guild Master's linked
+    -- alts from getting GM data access (R:HasGMEditAccess in Roster.lua) -
+    -- that only works when every character on the account is reading the
+    -- same shared roster.
+    local warn = content:CreateFontString(nil, "OVERLAY")
+    warn:SetFont("Fonts\\ARIALN.TTF", 12, "")
+    warn:SetTextColor(0.9, 0.55, 0.3)
+    warn:SetPoint("TOPLEFT", cb, "BOTTOMLEFT", 0, -10)
+    warn:SetWidth(CONTENT_W - 8)
+    warn:SetJustifyH("LEFT")
+    warn:SetWordWrap(true)
+    warn:SetText("Note: if you're the Guild Master, turning this on also removes your linked alts' account-wide access to the Guild Master editing tools (notes, nicknames, etc.) - that access only works when every character on your account shares the same roster.")
 end
 
 -- ── Guild Master ─────────────────────────────────────────────────────
--- Only meaningfully usable by the actual Guild Master (R:IsGuildMaster) -
--- confirmed 2026-08-12: "to remain safe, the only one that can actually do
--- editing... should be the Guild Master." Everyone else sees a plain
--- explanation instead of the controls.
+-- Data access (this whole page) is granted to the actual Guild Master
+-- (R:IsGuildMaster) AND any character the GM has linked into their own
+-- Main/Alt group in this guild (R:HasGMEditAccess - confirmed 2026-08-12,
+-- reuses the GM's own existing Main/Alt linking rather than separate
+-- account detection). Real guild actions still live only on the Guild
+-- Roster panel's profile pages and stay behind R:IsGuildMaster() alone -
+-- nothing on this Options page ever performs Promote/Demote/Kick. Everyone
+-- else sees a plain explanation instead of the controls.
 local function BuildGuildMaster(content)
     local header = Brand.FS(content, "Guild Master", "Fonts\\MORPHEUS.TTF", 24, "OUTLINE",
         Brand.ACCENT[1], Brand.ACCENT[2], Brand.ACCENT[3])
     header:SetPoint("TOPLEFT", content, "TOPLEFT", 0, 0)
     Brand.DrawDivider(content, 0, 30, CONTENT_W)
 
-    if not R:IsGuildMaster() then
-        local msg = content:CreateFontString(nil, "OVERLAY")
-        msg:SetFont("Fonts\\ARIALN.TTF", 15, "")
-        msg:SetTextColor(0.85, 0.85, 0.85)
-        msg:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -46)
-        msg:SetWidth(CONTENT_W)
-        msg:SetJustifyH("LEFT")
-        msg:SetWordWrap(true)
-        msg:SetText("Only the Guild Master can access this page.")
-        return
-    end
-
     local guild = R:GetGuilds()[1]
+
     if not guild then
         local msg = content:CreateFontString(nil, "OVERLAY")
         msg:SetFont("Fonts\\ARIALN.TTF", 15, "")
@@ -230,6 +237,18 @@ local function BuildGuildMaster(content)
         msg:SetWidth(CONTENT_W)
         msg:SetWordWrap(true)
         msg:SetText("Open the Guild Roster once (right-click the minimap button) to sync your guild first.")
+        return
+    end
+
+    if not R:HasGMEditAccess(guild) then
+        local msg = content:CreateFontString(nil, "OVERLAY")
+        msg:SetFont("Fonts\\ARIALN.TTF", 15, "")
+        msg:SetTextColor(0.85, 0.85, 0.85)
+        msg:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -46)
+        msg:SetWidth(CONTENT_W)
+        msg:SetJustifyH("LEFT")
+        msg:SetWordWrap(true)
+        msg:SetText("Only the Guild Master can access this page.")
         return
     end
 
@@ -560,12 +579,29 @@ local function CreateFramework()
     -- which spawns them at the literal same coordinate every time, which is
     -- what was still causing full overlap (confirmed 2026-08-12, second
     -- screenshot). Freely movable afterward same as before.
-    frame:SetPoint("CENTER", UIParent, "CENTER", -140, 60)
+    -- Only used the first time - once dragged, its real position is
+    -- remembered permanently (XRR_DB.optionsWindowPoint), same as every
+    -- mature addon's window (a collision can only ever happen once before
+    -- the player moves it and it's fixed for good).
+    -- 604x560 - anchored to the TOP edge (all 4 corners are already
+    -- claimed by other Xal's addons' big settings windows - see the
+    -- "Default window position" rule in the shared brand-style memory).
+    local savedPoint = XRR_DB.optionsWindowPoint
+    if savedPoint then
+        frame:SetPoint(savedPoint[1], UIParent, savedPoint[2], savedPoint[3], savedPoint[4])
+    else
+        frame:SetPoint("TOP", UIParent, "TOP", 0, -40)
+    end
+    frame:SetToplevel(true)
     frame:SetMovable(true)
     frame:EnableMouse(true)
     frame:RegisterForDrag("LeftButton")
     frame:SetScript("OnDragStart", frame.StartMoving)
-    frame:SetScript("OnDragStop", frame.StopMovingOrSizing)
+    frame:SetScript("OnDragStop", function(self)
+        self:StopMovingOrSizing()
+        local point, _, relPoint, x, y = self:GetPoint()
+        XRR_DB.optionsWindowPoint = { point, relPoint, x, y }
+    end)
     -- Distinct frame strata from Guild Roster (which uses "DIALOG") - a real
     -- separate render layer, not just draw-order-by-creation-sequence, so
     -- one is guaranteed on top of the other regardless of which opened last.
