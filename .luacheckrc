@@ -29,11 +29,6 @@ read_globals = {
     "GetGuildRosterInfo",
     "StaticPopup_Show",
     "StaticPopup_Hide",
-    "UIDropDownMenu_SetWidth",
-    "UIDropDownMenu_SetText",
-    "UIDropDownMenu_Initialize",
-    "UIDropDownMenu_CreateInfo",
-    "UIDropDownMenu_AddButton",
     "PixelUtil",
     "LibStub",
     "wipe",
@@ -41,6 +36,8 @@ read_globals = {
     "UISpecialFrames",
     "ChatFrame_OpenChat",
     "DEFAULT_CHAT_FRAME",
+    "C_Timer",
+    "ChatFontNormal",
 }
 
 -- Textures/backdrop tables and long chained SetPoint calls read as "unused
