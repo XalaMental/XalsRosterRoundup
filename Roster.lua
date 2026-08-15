@@ -266,6 +266,35 @@ function R:IsOwnCharacter(charName)
     return myName ~= nil and charName:lower() == myName:lower()
 end
 
+-- The Main/Alt group a member belongs to: themselves if they ARE the Main,
+-- otherwise whoever they're linked to.
+local function GroupAnchor(guild, charName)
+    local m = guild.members[charName]
+    if not m then return charName end
+    if m.isMain then return charName end
+    return m.linkedMain or charName
+end
+
+-- Account-wide GM data access: true for the real Guild Master (rank 0, via
+-- R:IsGuildMaster), AND for any other character the GM has linked into the
+-- same Main/Alt group in THIS guild - confirmed 2026-08-12: this reuses the
+-- Main/Alt linking the GM already sets up (no separate account-detection
+-- needed). A character in a different guild never appears in this guild's
+-- roster at all, so it can never match here - that exclusion is automatic.
+--
+-- Only covers addon-only data (notes, nicknames, the Officer list). Real
+-- guild actions (Promote/Demote/Kick) go through Blizzard's own API, which
+-- the server itself gates on actual in-game GM rank - no addon can grant
+-- those to an alt that doesn't hold the rank. Those stay behind
+-- R:IsGuildMaster() alone, never this function.
+function R:HasGMEditAccess(guild)
+    if R:IsGuildMaster() then return true end
+    if not guild or not guild.masterName then return false end
+    local myName = UnitName("player")
+    if not myName or not guild.members[myName] then return false end
+    return GroupAnchor(guild, myName) == GroupAnchor(guild, guild.masterName)
+end
+
 -- New members ----------------------------------------------------------
 -- A member counts as "reviewed" the moment their profile panel is opened -
 -- no field-editing required (confirmed 2026-08-12: "reviewed as any, maybe
