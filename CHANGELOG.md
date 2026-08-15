@@ -1,23 +1,19 @@
 # Xal's Roster Roundup - Changelog
 
-## 1.0.0 - August 12, 2026
+## 1.0.2 - August 12, 2026
 
----
-
-This one started as something to help a friend. Blinky got thrust into the Guild Master role and has been carrying the whole guild since, and I wanted to build her something that actually made that easier. But the bigger picture is the same as it always is for me: I look for the quality-of-life gaps that other addons only half-cover, and try to build something with a genuinely different angle instead of just another version of the same idea. So this is for Blinky first, but I'm hoping it ends up helping a lot more people than just her.
+I realized limiting all the editing tools to just your literal Guild Master character would really cut into how useful this addon actually is day-to-day. Most Guild Masters aren't logged into that specific character every time they think of a note to jot down or a nickname to add - so this update links your other characters in, too: if you've set one up as your Guild Master's alt, it can now open those same notes and tools without you having to remember to swap over. Hopefully this ends up being a well-received, genuinely needed addition rather than just a nice-to-have.
 
 ### 🆕 New
-- **Live Guild Roster panel** - right-click the minimap button to open a full roster: a condensed list of Mains on the left, an "Alts" indicator column in the middle, and a detail page on the right for whoever's selected.
-- **Automatic guild sync** - your real guild name, Guild Master, and every current member sync in automatically, no manual entry required to get started.
-- **Main/Alt linking** - link an alt to its main with a live-filtering autocomplete (type a few letters, pick from the list). Switch which character is "the main" at any time - the old main automatically becomes the new main's alt instead of being left stranded.
-- **Two profession fields per character**, each with autocomplete against the real, current profession list.
-- **"Reason they're here" tags** - Raid, Dungeon, Achievements, Mounts, Community.
-- **New member tracking** - a brand-new member's name shows in orange until you've opened their profile at least once, so nobody gets missed. Confirmed Mains show in green.
-- **Guild Master tools** - private per-member notes, an Officer list (a label/color only, no extra permissions), and real Promote/Demote/Kick actions gated to the actual Guild Master, each behind a confirmation popup (Kick behind two).
-- **Communication page** - any member can whisper the Guild Master or any Officer straight from the Options window, without digging through the roster.
-- **Display & Text customization** - accent color, background color/opacity, and body text font/size/outline, all picked from the Options window (applies after `/reload`).
-- **Minimap button** - left-click opens Options, right-click opens the Guild Roster directly.
+- **Member search** - a search box above the Mains list on the left. Start typing a name (or nickname) and the list narrows to matches instead of you having to scroll through the whole roster.
+- **Guild Master alt access** - if you've linked one of your other characters as your Guild Master's alt, that character can now open the Guild Master notes, nicknames, and Officer tools too - no need to log onto your actual Guild Master character just to jot something down. Real guild actions (Promote/Demote/Kick) still only work on your actual Guild Master character - that's a WoW server restriction, not something any addon can get around.
+
+### 🔧 Fixed
+- The "+Add Alt" autocomplete suggestion list - clicking a name in it wasn't actually selecting it, so you couldn't add an alt at all.
+- The Guild Master notes field is now a real scrollable paragraph box instead of a single cramped line - it grows with what you type and scrolls for longer notes.
+- A profile page with everything showing (notes, officer tools, promote/demote/kick) could spill its bottom buttons out past the window's edge. The detail pane now scrolls (same style scrollbar as the member list) instead of just being a bigger fixed box, so this can't happen again no matter how much is on the page.
+- Removed the "Linked Main" dropdown from an alt's profile page - it was redundant (you already know who it's linked to by how you got there) and wasn't selectable anyway.
+- Clicking a Main's "Alts" button a second time now closes back to their own profile instead of just sitting there.
 
 ### ⚙️ Under the hood
-- Custom-built, hand-drawn UI throughout (buttons, borders, checkboxes, scrollbar, autocomplete suggestion lists) instead of Blizzard's native widgets, for a consistent look and more reliable rendering across UI scales.
-- `luacheck` static analysis wired into the dev workflow to catch typos/dead code before anything reaches in-game testing.
+- Added a note on the Data page's per-character storage toggle explaining that turning it on removes this alt access, since it needs every character on the account sharing the same roster.
