@@ -2,7 +2,7 @@
 ## Title: Xal's Roster Roundup
 ## Notes: Guild member roster & profile helper for guild officers.
 ## Author: Xal
-## Version: 1.0.0
+## Version: 1.0.2
 ## X-Curse-Project-ID: 1649210
 ## IconTexture: Interface\AddOns\XalsRosterRoundup\Icon.png
 ## SavedVariables: XRR_DB
