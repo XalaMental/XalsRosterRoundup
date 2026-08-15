@@ -20,7 +20,12 @@ local R = XRR.Roster
 -- fixed narrow width. The extra width flows into the detail pane on the
 -- right (that anchors to the frame's own right edge already, so widening
 -- the frame widens it automatically - no other layout math needed).
-local FW, FH = 1000, 520
+-- FH bumped 520 -> 620 (2026-08-12): a full Guild-Master-editable alt
+-- profile (Notes + Officer toggle + Promote/Demote/Kick) runs close to
+-- 400px tall on its own - the old 520 window left buttons spilling out past
+-- the bottom edge into the game world. 620 gives real margin instead of a
+-- razor-thin fit.
+local FW, FH = 1000, 620
 local frame
 
 -- State: which guild tab is active, which member is selected, and (if in
@@ -31,6 +36,7 @@ local state = {
     altsView = false,
     selectedAlt = nil,
     addingAltFor = nil, -- charName of whoever's inline "+Add Alt" field is open
+    memberSearch = "", -- live filter text for the Mains list search box, lowercased
 }
 
 local REASON_KEYS = { "Raid", "Dungeon", "Achievements", "Mounts", "Community" }
@@ -137,10 +143,21 @@ local function AttachAutocomplete(editBox, getCandidates, onSelect)
     editBox:SetScript("OnTextChanged", function(_, userInput)
         if userInput then UpdateList() end
     end)
-    -- OnMouseDown (not OnClick) on the suggestion rows fires before
-    -- OnEditFocusLost hides the list, so a click actually registers instead
-    -- of the list disappearing out from under the cursor first.
-    editBox:HookScript("OnEditFocusLost", function() listFrame:Hide() end)
+    -- Hiding the list immediately on OnEditFocusLost isn't reliable - clicking
+    -- a row takes focus off editBox, and the order between that focus-loss
+    -- firing and the row button's own OnMouseDown firing isn't guaranteed, so
+    -- the list could vanish out from under the click before it registers
+    -- (confirmed in-game 2026-08-12, nothing was selectable). Same fix
+    -- already proven in this addon for the old right-click context menu's
+    -- identical timing bug: delay the hide one frame and skip it entirely if
+    -- the mouse is still over the list (i.e. a click on it is in progress).
+    editBox:HookScript("OnEditFocusLost", function()
+        C_Timer.After(0, function()
+            if not listFrame:IsMouseOver() then
+                listFrame:Hide()
+            end
+        end)
+    end)
 end
 
 -- Exposed so Options.lua's Guild Master page can reuse the exact same
@@ -184,16 +201,28 @@ local function CreateFramework()
     -- 2026-08-12. This is a fully independent, opaque, self-contained frame
     -- like any other addon window - freely movable afterward, meant to be
     -- draggable on top of Options (or vice versa) without issue.
-    frame:SetPoint("CENTER", UIParent, "CENTER", 140, -60)
+    -- Only used the first time - once dragged, its real position is
+    -- remembered permanently (XRR_DB.guildPanelPoint).
+    local savedPoint = XRR_DB.guildPanelPoint
+    if savedPoint then
+        frame:SetPoint(savedPoint[1], UIParent, savedPoint[2], savedPoint[3], savedPoint[4])
+    else
+        frame:SetPoint("CENTER", UIParent, "CENTER", 140, -60)
+    end
     -- Closes on Escape, same as Blizzard's own windows - confirmed
     -- 2026-08-12. Requires the frame to have a global name (set above via
     -- CreateFrame's 2nd arg, "XRRGuildPanel") for UISpecialFrames to find it.
     tinsert(UISpecialFrames, "XRRGuildPanel")
+    frame:SetToplevel(true)
     frame:SetMovable(true)
     frame:EnableMouse(true)
     frame:RegisterForDrag("LeftButton")
     frame:SetScript("OnDragStart", frame.StartMoving)
-    frame:SetScript("OnDragStop", frame.StopMovingOrSizing)
+    frame:SetScript("OnDragStop", function(self)
+        self:StopMovingOrSizing()
+        local point, _, relPoint, x, y = self:GetPoint()
+        XRR_DB.guildPanelPoint = { point, relPoint, x, y }
+    end)
     -- Distinct frame strata from Options (which uses "HIGH") - a real,
     -- separate WoW render layer (BACKGROUND < LOW < MEDIUM < HIGH < DIALOG <
     -- FULLSCREEN < FULLSCREEN_DIALOG < TOOLTIP), not just draw-order-by-
@@ -247,8 +276,10 @@ local function CreateFramework()
     frame.guildTabs:SetHeight(26)
     frame.guildTabButtons = {}
 
-    -- Body top starts below the (possibly hidden) tab row.
-    local bodyTop = -156
+    -- Body top starts below the (possibly hidden) tab row and the member
+    -- search box (added 2026-08-12) - was -156, shifted to -186 to leave
+    -- the search box its own 30px row instead of overlapping the list.
+    local bodyTop = -186
 
     -- Left column: Main member list. Widened from 190 to 240 for real
     -- breathing room (2026-08-12), and using the same custom thin
@@ -263,6 +294,37 @@ local function CreateFramework()
     -- read as "way too close to the left edge" in-game (2026-08-12).
     local listWidth = 240
     local listLeftInset = Brand.SAFE_MARGIN + 26
+
+    -- Member search box - live-filters the Mains list below as you type,
+    -- instead of having to scroll through the whole roster to find someone
+    -- by name (confirmed 2026-08-12: "if you know the name, you should be
+    -- able to start typing it"). Plain single-line InputBoxTemplate (native
+    -- widget, not hand-drawn - this is a simple text field, no reason to
+    -- build a custom one). Filters live in RenderMemberList via
+    -- state.memberSearch, not a separate suggestion-list overlay like
+    -- AttachAutocomplete - it narrows the real list in place.
+    local searchBox = CreateFrame("EditBox", nil, frame, "InputBoxTemplate")
+    searchBox:SetSize(listWidth - 20, 20)
+    searchBox:SetPoint("TOPLEFT", frame, "TOPLEFT", listLeftInset + 10, -156)
+    searchBox:SetAutoFocus(false)
+
+    local searchPlaceholder = searchBox:CreateFontString(nil, "OVERLAY")
+    searchPlaceholder:SetFont("Fonts\\ARIALN.TTF", 13, "")
+    searchPlaceholder:SetTextColor(0.5, 0.5, 0.5)
+    searchPlaceholder:SetPoint("LEFT", searchBox, "LEFT", 4, 0)
+    searchPlaceholder:SetText("Search members...")
+
+    searchBox:SetScript("OnTextChanged", function(self)
+        searchPlaceholder:SetShown(self:GetText() == "")
+        state.memberSearch = self:GetText():lower()
+        GP:Refresh()
+    end)
+    searchBox:SetScript("OnEscapePressed", function(self)
+        self:SetText("")
+        self:ClearFocus()
+    end)
+    frame.memberSearchBox = searchBox
+
     local listArea = CreateFrame("Frame", nil, frame)
     listArea:SetPoint("TOPLEFT", frame, "TOPLEFT", listLeftInset, bodyTop)
     listArea:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", listLeftInset, Brand.SAFE_MARGIN + 24)
@@ -361,10 +423,76 @@ local function CreateFramework()
     vDivider2:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", detailX, Brand.SAFE_MARGIN)
     vDivider2:SetWidth(Brand.LINE_THICKNESS)
 
-    -- Right column: detail pane (alt tab strip + profile fields).
+    -- Right column: detail pane (alt tab strip + profile fields). A real
+    -- scrollFrame, not just a taller fixed window - a static height is
+    -- never actually "enough," it just moves where the next overflow shows
+    -- up (confirmed 2026-08-12: "just setting a height or something isn't
+    -- enough. You need to allow it to add a scroll bar if needed."). Same
+    -- scrollbar technique as the Mains list on the left (track + Slider
+    -- thumb + mouse wheel).
     frame.detailPane = CreateFrame("Frame", nil, frame)
     frame.detailPane:SetPoint("TOPLEFT", frame, "TOPLEFT", detailX + 12, bodyTop)
     frame.detailPane:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -Brand.SAFE_MARGIN, Brand.SAFE_MARGIN + 24)
+
+    local detailScroll = CreateFrame("ScrollFrame", nil, frame.detailPane)
+    detailScroll:SetPoint("TOPLEFT", frame.detailPane, "TOPLEFT", 0, 0)
+    detailScroll:SetPoint("BOTTOMRIGHT", frame.detailPane, "BOTTOMRIGHT", -18, 0)
+
+    frame.detailContent = CreateFrame("Frame", nil, detailScroll)
+    frame.detailContent:SetSize(1, 1)
+    frame.detailContent:SetPoint("TOPLEFT", detailScroll, "TOPLEFT", 0, 0)
+    detailScroll:SetScrollChild(frame.detailContent)
+
+    local detailTrack = CreateFrame("Frame", nil, frame.detailPane, "BackdropTemplate")
+    detailTrack:SetPoint("TOPRIGHT", frame.detailPane, "TOPRIGHT", 0, 0)
+    detailTrack:SetPoint("BOTTOMRIGHT", frame.detailPane, "BOTTOMRIGHT", 0, 0)
+    detailTrack:SetWidth(8)
+    detailTrack:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8x8" })
+    detailTrack:SetBackdropColor(1, 1, 1, 0.08)
+    detailTrack:Hide()
+
+    local detailThumb = CreateFrame("Slider", nil, detailTrack)
+    detailThumb:SetOrientation("VERTICAL")
+    detailThumb:SetPoint("TOP", detailTrack, "TOP", 0, 0)
+    detailThumb:SetPoint("BOTTOM", detailTrack, "BOTTOM", 0, 0)
+    detailThumb:SetWidth(8)
+    detailThumb:SetThumbTexture("Interface\\Buttons\\WHITE8x8")
+    local detailThumbTex = detailThumb:GetThumbTexture()
+    detailThumbTex:SetVertexColor(Brand.ACCENT[1], Brand.ACCENT[2], Brand.ACCENT[3], 1)
+    detailThumbTex:SetWidth(8)
+
+    local suppressDetailScrollCallback = false
+    detailThumb:SetScript("OnValueChanged", function(_, value)
+        if suppressDetailScrollCallback then return end
+        detailScroll:SetVerticalScroll(value)
+    end)
+
+    detailScroll:EnableMouseWheel(true)
+    detailScroll:SetScript("OnMouseWheel", function(_, delta)
+        detailThumb:SetValue(detailThumb:GetValue() - delta * 40)
+    end)
+
+    -- Called after every RenderDetailPane pass, once the real content
+    -- height for whatever's currently showing is known - resets scroll to
+    -- the top each time (switching profiles/alt tabs should start you at
+    -- the top of the new one, not wherever the old scroll position was).
+    function frame.UpdateDetailScrollRange(contentHeight)
+        frame.detailContent:SetSize(math.max(1, detailScroll:GetWidth()), math.max(1, contentHeight))
+        local visibleHeight = detailScroll:GetHeight()
+        local maxScroll = math.max(0, contentHeight - visibleHeight)
+        suppressDetailScrollCallback = true
+        detailThumb:SetMinMaxValues(0, maxScroll)
+        detailThumb:SetValue(0)
+        suppressDetailScrollCallback = false
+        detailScroll:SetVerticalScroll(0)
+        if maxScroll > 0 then
+            detailTrack:Show()
+            local ratio = math.min(1, visibleHeight / contentHeight)
+            detailThumbTex:SetHeight(math.max(20, visibleHeight * ratio))
+        else
+            detailTrack:Hide()
+        end
+    end
 
     StaticPopupDialogs["XRR_ADD_MEMBER"] = {
         text = "Character name:",
@@ -528,6 +656,18 @@ local function RenderMemberList()
     end
 
     local mains = R:GetMains(guild)
+    if state.memberSearch ~= "" then
+        local filtered = {}
+        for _, m in ipairs(mains) do
+            local nickname = m.nickname or ""
+            if m.charName:lower():find(state.memberSearch, 1, true)
+                or nickname:lower():find(state.memberSearch, 1, true) then
+                table.insert(filtered, m)
+            end
+        end
+        mains = filtered
+    end
+
     for i, member in ipairs(mains) do
         local row = GetRow(i)
         -- Name color priority: CONFIRMED main (Roster.lua's ConfirmMain)
@@ -569,9 +709,17 @@ local function RenderMemberList()
         if #alts > 0 then
             local midBtn = GetMidButton(i)
             midBtn:SetScript("OnClick", function()
-                state.selectedMain = member.charName
-                state.altsView = true
-                state.selectedAlt = alts[1] and alts[1].charName or nil
+                -- Clicking Alts again while already viewing this Main's alts
+                -- closes it back to their own profile instead of just
+                -- sitting there doing nothing (confirmed 2026-08-12).
+                if state.altsView and state.selectedMain == member.charName then
+                    state.altsView = false
+                    state.selectedAlt = nil
+                else
+                    state.selectedMain = member.charName
+                    state.altsView = true
+                    state.selectedAlt = alts[1] and alts[1].charName or nil
+                end
                 GP:Refresh()
             end)
             if anyOnline then midBtn.onlineDot:Show() else midBtn.onlineDot:Hide() end
@@ -643,6 +791,109 @@ local function CreateAddAltControl(parent, guild, mainCharName, anchorPoint, x, 
 
         editBox:SetFocus()
     end
+end
+
+-- Scrollable multi-line Notes box - reuses the exact custom scrollbar
+-- technique already built for the Mains list (track + Slider thumb + mouse
+-- wheel, same as Quest Compass's own pattern) - NOT Blizzard's scroll
+-- widgets. The EditBox grows to fit the actual wrapped text, measured via a
+-- hidden shadow FontString using the same font/width (EditBox itself has no
+-- "content height" getter) - so a short note doesn't waste space and a long
+-- one scrolls inside the fixed viewport instead of pushing the rest of the
+-- page around or spilling past the window (confirmed 2026-08-12: "you need
+-- to start actually making things where they adjust more than be static").
+local function CreateNotesBox(parent, member, x, y, width, viewportHeight)
+    local border = CreateFrame("Frame", nil, parent, "BackdropTemplate")
+    border:SetSize(width, viewportHeight)
+    border:SetPoint("TOPLEFT", parent, "TOPLEFT", x, -y)
+    border:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8x8" })
+    border:SetBackdropColor(0.08, 0.08, 0.08, 0.9)
+    Brand.DrawBorder(border, 6)
+
+    local scrollFrame = CreateFrame("ScrollFrame", nil, border)
+    scrollFrame:SetPoint("TOPLEFT", border, "TOPLEFT", 10, -10)
+    scrollFrame:SetPoint("BOTTOMRIGHT", border, "BOTTOMRIGHT", -20, 10)
+    local viewportInnerHeight = viewportHeight - 20
+    local editBoxWidth = width - 34
+
+    local notesBox = CreateFrame("EditBox", nil, scrollFrame)
+    notesBox:SetWidth(editBoxWidth)
+    notesBox:SetHeight(viewportInnerHeight)
+    notesBox:SetMultiLine(true)
+    notesBox:SetAutoFocus(false)
+    notesBox:SetFontObject(ChatFontNormal)
+    notesBox:SetText(member.notes or "")
+    scrollFrame:SetScrollChild(notesBox)
+
+    -- Hidden shadow FontString, same font/width as the EditBox, purely to
+    -- measure real wrapped-text height.
+    local measure = border:CreateFontString(nil, "OVERLAY")
+    measure:SetFontObject(ChatFontNormal)
+    measure:SetWidth(editBoxWidth)
+    measure:SetWordWrap(true)
+    measure:Hide()
+
+    local track = CreateFrame("Frame", nil, border, "BackdropTemplate")
+    track:SetPoint("TOPRIGHT", border, "TOPRIGHT", -6, -10)
+    track:SetPoint("BOTTOMRIGHT", border, "BOTTOMRIGHT", -6, 10)
+    track:SetWidth(6)
+    track:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8x8" })
+    track:SetBackdropColor(1, 1, 1, 0.08)
+    track:Hide()
+
+    local thumbSlider = CreateFrame("Slider", nil, track)
+    thumbSlider:SetOrientation("VERTICAL")
+    thumbSlider:SetPoint("TOP", track, "TOP", 0, 0)
+    thumbSlider:SetPoint("BOTTOM", track, "BOTTOM", 0, 0)
+    thumbSlider:SetWidth(6)
+    thumbSlider:SetThumbTexture("Interface\\Buttons\\WHITE8x8")
+    local thumbTex = thumbSlider:GetThumbTexture()
+    thumbTex:SetVertexColor(Brand.ACCENT[1], Brand.ACCENT[2], Brand.ACCENT[3], 1)
+    thumbTex:SetWidth(6)
+
+    local suppressScrollCallback = false
+    thumbSlider:SetScript("OnValueChanged", function(_, value)
+        if suppressScrollCallback then return end
+        scrollFrame:SetVerticalScroll(value)
+    end)
+
+    scrollFrame:EnableMouseWheel(true)
+    scrollFrame:SetScript("OnMouseWheel", function(_, delta)
+        thumbSlider:SetValue(thumbSlider:GetValue() - delta * 20)
+    end)
+
+    local function UpdateScrollRange()
+        local contentHeight = notesBox:GetHeight()
+        local maxScroll = math.max(0, contentHeight - viewportInnerHeight)
+        suppressScrollCallback = true
+        thumbSlider:SetMinMaxValues(0, maxScroll)
+        thumbSlider:SetValue(math.min(thumbSlider:GetValue(), maxScroll))
+        suppressScrollCallback = false
+        if maxScroll > 0 then
+            track:Show()
+            local ratio = math.min(1, viewportInnerHeight / contentHeight)
+            thumbTex:SetHeight(math.max(20, viewportInnerHeight * ratio))
+        else
+            track:Hide()
+        end
+    end
+
+    local function ResizeToContent()
+        local text = notesBox:GetText()
+        measure:SetText(text ~= "" and text or " ")
+        local h = measure:GetStringHeight()
+        notesBox:SetHeight(math.max(viewportInnerHeight, h + 12))
+        UpdateScrollRange()
+    end
+
+    notesBox:SetScript("OnTextChanged", function(self)
+        member.notes = self:GetText()
+        ResizeToContent()
+    end)
+    notesBox:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
+
+    ResizeToContent()
+    return border
 end
 
 local function BuildProfileFields(parent, member, guild, yOffset)
@@ -769,32 +1020,11 @@ local function BuildProfileFields(parent, member, guild, yOffset)
     end
     y = y + 30
 
-    -- Main/Alt + linked-main are only editable from an alt's own tab (a
-    -- Main's identity as "the main" is implicit from being in the left list).
-    if not member.isMain then
-        FieldLabel("Linked Main", y)
-        y = y + 18
-        local ddText = member.linkedMain or "(none)"
-        local dd = CreateFrame("Frame", nil, parent, "UIDropDownMenuTemplate")
-        dd:SetPoint("TOPLEFT", parent, "TOPLEFT", -12, -y)
-        UIDropDownMenu_SetWidth(dd, 220)
-        UIDropDownMenu_SetText(dd, ddText)
-        UIDropDownMenu_Initialize(dd, function(self, level)
-            local mains = R:GetMains(guild)
-            for _, m in ipairs(mains) do
-                local info = UIDropDownMenu_CreateInfo()
-                info.text = m.charName
-                info.func = function()
-                    member.linkedMain = m.charName
-                    UIDropDownMenu_SetText(dd, m.charName)
-                    GP:Refresh()
-                end
-                UIDropDownMenu_AddButton(info)
-            end
-        end)
-        table.insert(detailWidgets, dd)
-        y = y + 36
-    end
+    -- The old "Linked Main" dropdown was removed 2026-08-12 - redundant on
+    -- an alt's own tab, since you only reach it by clicking through the
+    -- Main you already know it's linked to ("confusing... repetitive
+    -- because you already see the main"). Re-linking an alt to a different
+    -- Main still works from that OTHER Main's own "+Add Alt" field.
 
     -- A Main can add their first alt directly from their own profile page -
     -- the middle-column "Alts" button only appears once at least one alt
@@ -809,26 +1039,21 @@ local function BuildProfileFields(parent, member, guild, yOffset)
     -- rather than any lesser "unset as main" action, and isn't a feature
     -- that's actually needed here.
 
-    -- Guild Master only: private notes + real guild-management actions.
-    -- Confirmed 2026-08-12: "to remain safe... the only one that can
-    -- actually do editing... should be the Guild Master" - hidden entirely
-    -- for everyone else, including on their OWN profile (can't kick/
-    -- promote/demote yourself anyway).
-    if R:IsGuildMaster() and not R:IsOwnCharacter(member.charName) then
+    -- GM data access (notes, Officer toggle): the real Guild Master, PLUS
+    -- any character the GM has linked into their own Main/Alt group in this
+    -- guild (confirmed 2026-08-12 - "the guild master would be setting up
+    -- mains, alts, etcetera, so that would be what would link the guild
+    -- master and the other characters on the account"). Still hidden on
+    -- your own profile either way.
+    if R:HasGMEditAccess(guild) and not R:IsOwnCharacter(member.charName) then
         FieldLabel("Notes (Guild Master only)", y)
         y = y + 18
-        local notesBox = CreateFrame("EditBox", nil, parent, "InputBoxTemplate")
-        notesBox:SetSize(320, 20)
-        notesBox:SetPoint("TOPLEFT", parent, "TOPLEFT", 4, -y)
-        notesBox:SetAutoFocus(false)
-        notesBox:SetText(member.notes or "")
-        notesBox:SetScript("OnEnterPressed", function(self)
-            member.notes = self:GetText()
-            self:ClearFocus()
-        end)
-        notesBox:SetScript("OnEditFocusLost", function(self) member.notes = self:GetText() end)
-        table.insert(detailWidgets, notesBox)
-        y = y + 32
+
+        -- Scrollable paragraph box, not a single-line pill or a static
+        -- fixed-height box - see CreateNotesBox above.
+        local notesBorder = CreateNotesBox(parent, member, 4, y, 320, 90)
+        table.insert(detailWidgets, notesBorder)
+        y = y + 90 + 12
 
         local officerBtn = Brand.MakeButton(parent,
             member.isOfficer and "Remove Officer" or "Make Officer", 130, 22, function()
@@ -837,28 +1062,42 @@ local function BuildProfileFields(parent, member, guild, yOffset)
             end)
         officerBtn:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, -y)
         table.insert(detailWidgets, officerBtn)
+        y = y + 32
 
-        local promoteBtn = Brand.MakeButton(parent, "Promote", 90, 22, function()
-            StaticPopup_Show("XRR_CONFIRM_PROMOTE", member.charName, nil, member.charName)
-        end)
-        promoteBtn:SetPoint("LEFT", officerBtn, "RIGHT", 8, 0)
-        table.insert(detailWidgets, promoteBtn)
+        -- Real guild-management actions (Promote/Demote/Kick) go through
+        -- Blizzard's own API, which the server gates on actually holding GM
+        -- rank in-game - no addon can grant these to a linked alt that
+        -- doesn't hold the rank itself, so these stay behind the strict
+        -- R:IsGuildMaster() check alone, never R:HasGMEditAccess.
+        if R:IsGuildMaster() then
+            local promoteBtn = Brand.MakeButton(parent, "Promote", 90, 22, function()
+                StaticPopup_Show("XRR_CONFIRM_PROMOTE", member.charName, nil, member.charName)
+            end)
+            promoteBtn:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, -y)
+            table.insert(detailWidgets, promoteBtn)
 
-        local demoteBtn = Brand.MakeButton(parent, "Demote", 90, 22, function()
-            StaticPopup_Show("XRR_CONFIRM_DEMOTE", member.charName, nil, member.charName)
-        end)
-        demoteBtn:SetPoint("LEFT", promoteBtn, "RIGHT", 8, 0)
-        table.insert(detailWidgets, demoteBtn)
+            local demoteBtn = Brand.MakeButton(parent, "Demote", 90, 22, function()
+                StaticPopup_Show("XRR_CONFIRM_DEMOTE", member.charName, nil, member.charName)
+            end)
+            demoteBtn:SetPoint("LEFT", promoteBtn, "RIGHT", 8, 0)
+            table.insert(detailWidgets, demoteBtn)
 
-        -- Kick keeps its double confirmation - accepting the first popup
-        -- only opens the second one, doesn't kick anyone yet (confirmed
-        -- 2026-08-12, the most destructive action gets extra friction).
-        local kickBtn = Brand.MakeButton(parent, "Kick from Guild", 130, 22, function()
-            StaticPopup_Show("XRR_CONFIRM_KICK", member.charName, nil, member.charName)
-        end)
-        kickBtn:SetPoint("LEFT", demoteBtn, "RIGHT", 8, 0)
-        table.insert(detailWidgets, kickBtn)
+            -- Kick keeps its double confirmation - accepting the first popup
+            -- only opens the second one, doesn't kick anyone yet (confirmed
+            -- 2026-08-12, the most destructive action gets extra friction).
+            local kickBtn = Brand.MakeButton(parent, "Kick from Guild", 130, 22, function()
+                StaticPopup_Show("XRR_CONFIRM_KICK", member.charName, nil, member.charName)
+            end)
+            kickBtn:SetPoint("LEFT", demoteBtn, "RIGHT", 8, 0)
+            table.insert(detailWidgets, kickBtn)
+            y = y + 32
+        end
     end
+
+    -- Real final content height, not a guess - RenderDetailPane uses this
+    -- to size the scrollable content frame so the scrollbar's range is
+    -- always accurate to whatever's actually showing.
+    return y
 end
 
 local altTabPool = {}
@@ -866,16 +1105,21 @@ local altTabPool = {}
 local function RenderDetailPane()
     ClearDetailPane()
     local guild = R:GetGuild(state.guildIndex)
-    local parent = frame.detailPane
+    local parent = frame.detailContent
     if not guild or not state.selectedMain then
+        frame.UpdateDetailScrollRange(1)
         return
     end
 
     local mainMember = guild.members[state.selectedMain]
-    if not mainMember then return end
+    if not mainMember then
+        frame.UpdateDetailScrollRange(1)
+        return
+    end
 
     if not state.altsView then
-        BuildProfileFields(parent, mainMember, guild, 0)
+        local contentHeight = BuildProfileFields(parent, mainMember, guild, 0)
+        frame.UpdateDetailScrollRange(contentHeight)
         return
     end
 
@@ -925,9 +1169,11 @@ local function RenderDetailPane()
     table.insert(detailWidgets, backBtn)
 
     local activeAlt = state.selectedAlt and guild.members[state.selectedAlt]
+    local contentHeight = 40
     if activeAlt then
-        BuildProfileFields(parent, activeAlt, guild, 40)
+        contentHeight = BuildProfileFields(parent, activeAlt, guild, 40)
     end
+    frame.UpdateDetailScrollRange(contentHeight)
 end
 
 function GP:Refresh()
