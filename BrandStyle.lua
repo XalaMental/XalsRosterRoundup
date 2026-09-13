@@ -20,9 +20,18 @@ XRR.BrandStyle = {}
 local Brand = XRR.BrandStyle
 
 -- ── Colours (r, g, b) ─────────────────────────────────────────
-Brand.ACCENT = { 0.72, 0.55, 0.22 }   -- warm bronze-gold
+-- Deep burnt-orange + dark indigo, the current family default (confirmed
+-- 2026-09-02, replaces the old bronze-gold/near-black look) - was
+-- { 0.72, 0.55, 0.22 } / { 0.035, 0.035, 0.035, 1 }. Changed as the DEFAULT
+-- VALUE here (not a separate parallel constant like other addons use) since
+-- this addon's own Options -> Display page already lets players pick a
+-- live custom accent/background color that mutates these same tables in
+-- place (Brand.ApplySavedTheme) - everything else (borders, titles, button
+-- hover/selected color, checkbox borders, dividers) already reads from
+-- these same mutable values, so that picker keeps working unchanged.
+Brand.ACCENT = { 0.72, 0.30, 0.0 }    -- deep burnt-orange
 Brand.GOLD   = { 0.60, 0.47, 0.30 }   -- secondary/body text tone
-Brand.BG     = { 0.035, 0.035, 0.035, 1 } -- near-black, fully opaque
+Brand.BG     = { 0.03, 0.028, 0.06, 1 } -- dark indigo, fully opaque (#08070f)
 Brand.LINE_THICKNESS = 2 -- minimum for ANY border/divider - never go below this
 -- Minimum gap between a panel's true outer edge and the nearest button/text
 -- (close buttons especially). DrawBorder()'s line occupies out to 8px in
@@ -36,17 +45,38 @@ Brand.SAFE_MARGIN = 14
 
 -- ── Customizable body text (Options -> Text page) ──────────────────────
 -- Applies to regular body/label/description/row text ONLY - the big
--- branded Morpheus titles (Brand.Title) stay fixed on purpose, same as
--- every other addon in this family. These are read ONCE when a panel is
--- built, not live - confirmed 2026-08-12: "changes apply after /reload"
--- is the accepted tradeoff, matching Quest Compass's own ElvUI-skin toggle,
+-- branded title (Brand.Title) stays fixed on purpose, same as every other
+-- addon in this family. These are read ONCE when a panel is built, not
+-- live - confirmed 2026-08-12: "changes apply after /reload" is the
+-- accepted tradeoff, matching Quest Compass's own ElvUI-skin toggle,
 -- rather than a much larger live-re-theme-every-frame rebuild.
-Brand.BODY_FONT_PATH = "Fonts\\ARIALN.TTF"
+-- Default bumped to the bundled Fira Sans Medium (2026-08-19, brand refresh)
+-- - was Fonts\ARIALN.TTF, a stock Blizzard font, before the family's fonts
+-- were standardized. The picker on the Text page (Options.lua) still lets
+-- players choose a different family; this only changes the OUT-OF-THE-BOX
+-- default.
+Brand.BODY_FONT_PATH = "Interface\\AddOns\\XalsRosterRoundup\\Fonts\\FiraSans-Medium.ttf"
 Brand.BODY_SIZE_SCALE = 1.0 -- 0.85 small / 1.0 medium / 1.15 large
 Brand.BODY_OUTLINE = "" -- "", "OUTLINE", or "THICKOUTLINE" - no color option
 -- exists for this at the WoW API level, the engine always renders it black
 -- (confirmed 2026-08-12, this is a real engine limitation, not a shortcut).
 Brand.BODY_TEXT_COLOR = { 0.85, 0.85, 0.85 }
+
+-- The OLD bronze-gold/near-black defaults, before the 2026-09-02 indigo/
+-- orange refresh - the Display page's color pickers auto-save whatever
+-- Brand.ACCENT/Brand.BG's value was the FIRST time that page was ever
+-- opened (`XRR_DB.accentColor = XRR_DB.accentColor or {...}`), so anyone
+-- who opened Display before this update has these old values permanently
+-- baked into their SavedVariables - no code-level default change can ever
+-- override a saved value that already exists. Confirmed in-game via
+-- screenshot 2026-09-12 (still bronze-gold/near-black after the refresh,
+-- on a genuinely fresh copy) - this is why, not a color that failed to
+-- apply.
+local OLD_ACCENT_DEFAULT = { 0.72, 0.55, 0.22 }
+local OLD_BG_DEFAULT = { 0.035, 0.035, 0.035 }
+local function IsOldDefault(saved, old)
+    return saved and saved[1] == old[1] and saved[2] == old[2] and saved[3] == old[3]
+end
 
 -- Reads saved settings (XRR_DB) into the constants above, plus mutates
 -- Brand.ACCENT/Brand.BG's own VALUES in place (not reassigning the tables -
@@ -55,6 +85,17 @@ Brand.BODY_TEXT_COLOR = { 0.85, 0.85, 0.85 }
 -- that was written before this setting existed, with zero other changes
 -- needed). Call this once at login, before any panel is ever built.
 function Brand.ApplySavedTheme()
+    -- One-time migration: a saved value that's EXACTLY the old stale
+    -- default (never actually chosen, just auto-captured) gets cleared so
+    -- the new code-level default takes over. A genuinely different custom
+    -- pick is never touched.
+    if IsOldDefault(XRR_DB.accentColor, OLD_ACCENT_DEFAULT) then
+        XRR_DB.accentColor = nil
+    end
+    if IsOldDefault(XRR_DB.bgColor, OLD_BG_DEFAULT) then
+        XRR_DB.bgColor = nil
+    end
+
     local accent = XRR_DB.accentColor
     if accent then
         Brand.ACCENT[1], Brand.ACCENT[2], Brand.ACCENT[3] = accent[1], accent[2], accent[3]
@@ -113,14 +154,20 @@ function Brand.FS(parent, text, fontPath, size, flags, r, g, b)
     return fs
 end
 
--- ── Title()  ─ the branded Morpheus-font title treatment, with its
--- drop-shadow layer, in one call. Returns the visible (front) fontstring.
+-- ── Title font ────────────────────────────────────────────────
+-- Bundled Simply Sans Bold (SIL OFL), ships in Fonts/CustomFont.ttf -
+-- replaces Fonts\MORPHEUS.TTF (2026-08-19, brand refresh) to match the
+-- rest of the family (Quest Compass, Reins, etc.).
+Brand.TITLE_FONT_PATH = "Interface\\AddOns\\XalsRosterRoundup\\Fonts\\CustomFont.ttf"
+
+-- ── Title()  ─ the branded title treatment, with its drop-shadow layer,
+-- in one call. Returns the visible (front) fontstring.
 function Brand.Title(parent, text, size, anchorPoint, relTo, relPoint, x, y)
-    local shadow = Brand.FS(parent, text, "Fonts\\MORPHEUS.TTF", size, "OUTLINE", 0, 0, 0)
+    local shadow = Brand.FS(parent, text, Brand.TITLE_FONT_PATH, size, "OUTLINE", 0, 0, 0)
     PixelUtil.SetPoint(shadow, anchorPoint, relTo, relPoint, x + 4, y - 4)
     shadow:SetJustifyH("CENTER")
 
-    local title = Brand.FS(parent, text, "Fonts\\MORPHEUS.TTF", size, "OUTLINE",
+    local title = Brand.FS(parent, text, Brand.TITLE_FONT_PATH, size, "OUTLINE",
         Brand.ACCENT[1], Brand.ACCENT[2], Brand.ACCENT[3])
     PixelUtil.SetPoint(title, anchorPoint, relTo, relPoint, x, y)
     title:SetJustifyH("CENTER")
@@ -283,6 +330,145 @@ function Brand.ApplyBackground(f)
     return bg
 end
 
+-- ── ApplyBackgroundImage()  ─ the shared dark-swirl texture art, sitting on
+-- top of the flat background color (BORDER layer, below everything else -
+-- border/dividers/text all draw at ARTWORK/OVERLAY, above this). Call AFTER
+-- ApplyBackground so the flat color shows through anywhere the image
+-- doesn't cover. Returns the texture so callers can hide/show it without
+-- hunting for it again. Added 2026-08-19 (brand refresh) - this addon had
+-- no background image at all before.
+function Brand.ApplyBackgroundImage(f)
+    local img = f:CreateTexture(nil, "BORDER")
+    img:SetAllPoints(f)
+    img:SetTexture("Interface\\AddOns\\XalsRosterRoundup\\Textures\\PanelBackground.jpg")
+    return img
+end
+
+-- ── Discord link ──────────────────────────────────────────────
+-- A permanent, standing text link (not a per-release thing) meant to live on
+-- the What's New splash and the main Settings page. Added 2026-08-19 (brand
+-- refresh) - this addon had no in-game Discord link before.
+Brand.DISCORD_URL = "https://discord.gg/9SwrQDJeCe"
+
+function Brand.MakeDiscordLink(parent)
+    local btn = CreateFrame("Button", nil, parent)
+    btn:SetSize(130, 20)
+
+    local label = btn:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    label:SetPoint("LEFT")
+    label:SetText("Join us on Discord")
+    label:SetTextColor(Brand.ACCENT[1], Brand.ACCENT[2], Brand.ACCENT[3], 1)
+    btn.label = label
+    btn:SetWidth(label:GetStringWidth())
+
+    btn:SetScript("OnEnter", function() label:SetTextColor(1, 1, 1, 1) end)
+    btn:SetScript("OnLeave", function()
+        label:SetTextColor(Brand.ACCENT[1], Brand.ACCENT[2], Brand.ACCENT[3], 1)
+    end)
+    btn:SetScript("OnClick", function()
+        Brand.ShowCopyBox("Join us on Discord", Brand.DISCORD_URL)
+    end)
+
+    return btn
+end
+
+-- ── MakeTextLink() / MakeCloseButton() ───────────────────────────
+-- Text-link style controls (accent gold, brightening to white on hover)
+-- instead of boxed buttons - the confirmed current standard (Routes,
+-- 2026-08-16: "it doesn't create such a visual blemish"), applied here
+-- 2026-08-19. Neither sets its own anchor point; every call site anchors it
+-- itself, same convention as Brand.MakeButton.
+function Brand.MakeTextLink(parent, text, onClick)
+    local btn = CreateFrame("Button", nil, parent)
+    btn:SetHeight(20)
+
+    local label = btn:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    label:SetPoint("CENTER")
+    label:SetText(text)
+    label:SetTextColor(Brand.ACCENT[1], Brand.ACCENT[2], Brand.ACCENT[3], 1)
+    btn.label = label
+    btn:SetWidth(math.max(40, label:GetStringWidth() + 8))
+
+    btn:SetScript("OnEnter", function() label:SetTextColor(1, 1, 1, 1) end)
+    btn:SetScript("OnLeave", function()
+        label:SetTextColor(Brand.ACCENT[1], Brand.ACCENT[2], Brand.ACCENT[3], 1)
+    end)
+    btn:SetScript("OnClick", onClick)
+
+    return btn
+end
+
+function Brand.MakeCloseButton(parent, onClick)
+    return Brand.MakeTextLink(parent, "Close", onClick or function() parent:Hide() end)
+end
+
+-- ── ShowCopyBox() ────────────────────────────────────────────────
+-- Our own copy-a-URL window, replacing Blizzard's StaticPopup so it carries
+-- the addon's background, border and fonts like every other frame here.
+-- Also sidesteps the editBox/EditBox field-name churn entirely.
+local copyFrame
+
+function Brand.ShowCopyBox(caption, url)
+    if not url or url == "" then return end
+
+    if not copyFrame then
+        local f = CreateFrame("Frame", "XalsRosterRoundupCopyBox", UIParent)
+        f:SetSize(360, 130)
+        f:SetPoint("CENTER", UIParent, "CENTER", 0, 220)
+        f:SetFrameStrata("FULLSCREEN_DIALOG")
+        f:SetToplevel(true)
+        f:SetMovable(true)
+        f:EnableMouse(true)
+        f:RegisterForDrag("LeftButton")
+        f:SetScript("OnDragStart", f.StartMoving)
+        f:SetScript("OnDragStop", f.StopMovingOrSizing)
+        f:SetClampedToScreen(true)
+        tinsert(UISpecialFrames, "XalsRosterRoundupCopyBox")
+
+        -- Flat color only, no swirl image - confirmed 2026-09-02 brand refresh.
+        Brand.ApplyBackground(f)
+        Brand.DrawBorder(f)
+
+        f.caption = Brand.FS(f, "", Brand.TITLE_FONT_PATH, 15, nil,
+            Brand.ACCENT[1], Brand.ACCENT[2], Brand.ACCENT[3])
+        f.caption:SetPoint("TOP", f, "TOP", 0, -Brand.SAFE_MARGIN)
+
+        local box = CreateFrame("EditBox", nil, f, "InputBoxTemplate")
+        box:SetHeight(22)
+        box:SetPoint("TOPLEFT", f, "TOPLEFT", Brand.SAFE_MARGIN + 10, -46)
+        box:SetPoint("TOPRIGHT", f, "TOPRIGHT", -Brand.SAFE_MARGIN, -46)
+        box:SetAutoFocus(true)
+        box:SetFontObject("GameFontHighlightSmall")
+        -- Reselect rather than allow edits: this is for copying, not typing.
+        box:SetScript("OnTextChanged", function(self)
+            if self.locked then return end
+            self.locked = true
+            self:SetText(f.url or "")
+            self:HighlightText()
+            self.locked = false
+        end)
+        box:SetScript("OnEscapePressed", function() f:Hide() end)
+        f.box = box
+
+        local hint = Brand.FS(f, "Ctrl+C to copy", Brand.BODY_FONT_PATH, 11, nil, 0.6, 0.6, 0.6)
+        hint:SetPoint("TOPLEFT", box, "BOTTOMLEFT", 2, -6)
+
+        local close = Brand.MakeCloseButton(f, function() f:Hide() end)
+        close:SetPoint("BOTTOM", f, "BOTTOM", 0, Brand.SAFE_MARGIN)
+
+        copyFrame = f
+    end
+
+    copyFrame.url = url
+    copyFrame.caption:SetText(caption or "Copy this link")
+    copyFrame.box.locked = true
+    copyFrame.box:SetText(url)
+    copyFrame.box.locked = false
+    copyFrame:Show()
+    copyFrame.box:SetFocus()
+    copyFrame.box:HighlightText()
+end
+
 -- ── MakeCheckbox()  ─ hand-drawn checkbox, same reason/technique as
 -- MakeButton's hand-drawn border: Blizzard's native UICheckButtonTemplate
 -- was found rendering incomplete (missing its bottom edge entirely, not
@@ -335,10 +521,17 @@ function Brand.MakeCheckbox(parent, size)
     PixelUtil.SetWidth(borderRight, thick)
     borderRight:SetColorTexture(r, g, b, 1)
 
-    local check = cb:CreateFontString(nil, "OVERLAY")
-    check:SetFont("Fonts\\FRIZQT__.TTF", size - 2, "OUTLINE")
-    check:SetText("X")
-    check:SetTextColor(r, g, b, 1)
+    -- Texture, not a FontString "X" - a font glyph's CENTER anchor centers
+    -- against the font's full line-height box (ascender/descender padding
+    -- included), not the glyph's actual ink, so it visually drifts off-true-
+    -- center. Blizzard's own checkmark texture centers exactly where told,
+    -- no font-metrics guesswork. Ported from Quest Compass 2026-08-19
+    -- (brand refresh) - this addon was flagged as still having the old
+    -- FontString version and likely the same off-center bug.
+    local check = cb:CreateTexture(nil, "OVERLAY")
+    check:SetTexture("Interface\\Buttons\\UI-CheckBox-Check")
+    check:SetVertexColor(r, g, b, 1)
+    PixelUtil.SetSize(check, size - 4, size - 4)
     check:SetPoint("CENTER", cb, "CENTER", 0, 0)
     check:Hide()
 
