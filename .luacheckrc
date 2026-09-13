@@ -38,6 +38,8 @@ read_globals = {
     "DEFAULT_CHAT_FRAME",
     "C_Timer",
     "ChatFontNormal",
+    "C_AddOns",
+    "GetAddOnMetadata",
 }
 
 -- Textures/backdrop tables and long chained SetPoint calls read as "unused
