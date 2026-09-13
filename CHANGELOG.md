@@ -1,19 +1,17 @@
 # Xal's Roster Roundup - Changelog
 
-## 1.0.2 - August 12, 2026
+## 1.1.0 - September 12, 2026
 
-I realized limiting all the editing tools to just your literal Guild Master character would really cut into how useful this addon actually is day-to-day. Most Guild Masters aren't logged into that specific character every time they think of a note to jot down or a nickname to add - so this update links your other characters in, too: if you've set one up as your Guild Master's alt, it can now open those same notes and tools without you having to remember to swap over. Hopefully this ends up being a well-received, genuinely needed addition rather than just a nice-to-have.
+I hadn't touched this one's look since I first built it, and the rest of my addons have moved on to a new visual style since then - a darker indigo background and a deep orange accent instead of the old bronze-gold and swirl texture. Figured it was time to catch this one up so it actually looks like part of the same family again instead of standing out as the odd one.
 
-### 🆕 New
-- **Member search** - a search box above the Mains list on the left. Start typing a name (or nickname) and the list narrows to matches instead of you having to scroll through the whole roster.
-- **Guild Master alt access** - if you've linked one of your other characters as your Guild Master's alt, that character can now open the Guild Master notes, nicknames, and Officer tools too - no need to log onto your actual Guild Master character just to jot something down. Real guild actions (Promote/Demote/Kick) still only work on your actual Guild Master character - that's a WoW server restriction, not something any addon can get around.
+Testing the new look turned up a few rough edges I wasn't expecting - old saved settings from before the update were quietly overriding the new colors, the What's New popup was overlapping its own text, and the Options window had a couple of spacing issues along the border. Got all of that sorted before calling this one done.
 
-### 🔧 Fixed
-- The "+Add Alt" autocomplete suggestion list - clicking a name in it wasn't actually selecting it, so you couldn't add an alt at all.
-- The Guild Master notes field is now a real scrollable paragraph box instead of a single cramped line - it grows with what you type and scrolls for longer notes.
-- A profile page with everything showing (notes, officer tools, promote/demote/kick) could spill its bottom buttons out past the window's edge. The detail pane now scrolls (same style scrollbar as the member list) instead of just being a bigger fixed box, so this can't happen again no matter how much is on the page.
-- Removed the "Linked Main" dropdown from an alt's profile page - it was redundant (you already know who it's linked to by how you got there) and wasn't selectable anyway.
-- Clicking a Main's "Alts" button a second time now closes back to their own profile instead of just sitting there.
+### 🎨 Visual refresh
+- Switched the accent color from bronze-gold to a deep burnt-orange, and the background from a dark swirl texture to a flat dark indigo - matches the current look across all of my addons.
+- The background opacity slider on the Display page now matches the new orange accent too.
+- Fixed the What's New popup overlapping and stacking its own text instead of reading top to bottom.
+- Fixed the Options window's border/footer - the window was slightly too narrow, which pushed the Discord link right onto the edge instead of sitting safely inside it. The footer now also shows your actual installed version instead of being stuck on "v1.0.0."
 
-### ⚙️ Under the hood
-- Added a note on the Data page's per-character storage toggle explaining that turning it on removes this alt access, since it needs every character on the account sharing the same roster.
+---
+
+Dedicated to "Blinky" - who got handed the Guild Master role with no warning and has been carrying the whole guild ever since. This one's for her first, and hoping it helps plenty of other Guild Masters too.
