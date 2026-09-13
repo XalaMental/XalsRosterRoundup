@@ -117,7 +117,7 @@ local function AttachAutocomplete(editBox, getCandidates, onSelect)
                 btn:SetPoint("TOPLEFT", listFrame, "TOPLEFT", 3, -(i - 1) * ROW_H - 3)
                 btn:SetPoint("TOPRIGHT", listFrame, "TOPRIGHT", -3, -(i - 1) * ROW_H - 3)
                 local fs = btn:CreateFontString(nil, "OVERLAY")
-                fs:SetFont("Fonts\\ARIALN.TTF", 13, "")
+                fs:SetFont(Brand.BODY_FONT_PATH, 13, "")
                 fs:SetPoint("LEFT", btn, "LEFT", 4, 0)
                 fs:SetTextColor(0.9, 0.9, 0.9)
                 btn.text = fs
@@ -245,20 +245,24 @@ local function CreateFramework()
         state.addingAltFor = nil
     end)
 
+    -- Flat color only, no swirl image - confirmed 2026-09-02 brand refresh
+    -- ("we're removing the background image... I wanted a dark blue
+    -- bordering on purple"). Brand.ApplyBackgroundImage still exists but is
+    -- no longer called for the default look.
     Brand.ApplyBackground(frame)
     Brand.DrawBorder(frame, 6)
 
     Brand.Title(frame, "Guild Roster", 32, "TOP", frame, "TOP", 0, -20)
     Brand.DrawDivider(frame, Brand.SAFE_MARGIN, 80, FW - Brand.SAFE_MARGIN * 2)
 
-    local closeBtn = Brand.MakeButton(frame, "X", 24, 24, function() frame:Hide() end)
+    local closeBtn = Brand.MakeCloseButton(frame, function() frame:Hide() end)
     closeBtn:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -Brand.SAFE_MARGIN, -Brand.SAFE_MARGIN)
 
     -- Current guild + Guild Master, right under the header divider. Green
     -- (same tone as the online-status dots), not the dim grey body-text
     -- color - confirmed 2026-08-12.
     frame.guildInfoText = frame:CreateFontString(nil, "OVERLAY")
-    frame.guildInfoText:SetFont("Fonts\\ARIALN.TTF", 16, "")
+    frame.guildInfoText:SetFont(Brand.BODY_FONT_PATH, 16, "")
     frame.guildInfoText:SetTextColor(0.2, 0.9, 0.3)
     frame.guildInfoText:SetPoint("TOPLEFT", frame, "TOPLEFT", Brand.SAFE_MARGIN, -92)
 
@@ -309,7 +313,7 @@ local function CreateFramework()
     searchBox:SetAutoFocus(false)
 
     local searchPlaceholder = searchBox:CreateFontString(nil, "OVERLAY")
-    searchPlaceholder:SetFont("Fonts\\ARIALN.TTF", 13, "")
+    searchPlaceholder:SetFont(Brand.BODY_FONT_PATH, 13, "")
     searchPlaceholder:SetTextColor(0.5, 0.5, 0.5)
     searchPlaceholder:SetPoint("LEFT", searchBox, "LEFT", 4, 0)
     searchPlaceholder:SetText("Search members...")
@@ -388,7 +392,7 @@ local function CreateFramework()
         end
     end
 
-    local addMemberBtn = Brand.MakeButton(frame, "+ Add Member", listWidth, 24, function()
+    local addMemberBtn = Brand.MakeTextLink(frame, "+ Add Member", function()
         StaticPopup_Show("XRR_ADD_MEMBER")
     end)
     addMemberBtn:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", listLeftInset, Brand.SAFE_MARGIN)
@@ -564,6 +568,12 @@ local function RenderGuildInfo()
 end
 
 -- ── Guild tabs ───────────────────────────────────────────────────────
+-- Link-style tabs (2026-08-19 brand refresh) - active state is a manual
+-- color toggle (white vs accent gold) since Brand.MakeTextLink doesn't
+-- carry a built-in SetSelected like the old boxed MakeButton did. Same
+-- pattern as Xal's Reins' own tab strip. Chained LEFT-to-previous-RIGHT
+-- anchoring (not a fixed x-step) since a text link's width follows its own
+-- label instead of a uniform box.
 local function RenderGuildTabs()
     local guilds = R:GetGuilds()
     for _, btn in ipairs(frame.guildTabButtons) do btn:Hide() end
@@ -574,26 +584,37 @@ local function RenderGuildTabs()
     end
     frame.guildTabs:Show()
 
-    local x = 0
+    local previous
     for i, guild in ipairs(guilds) do
         local btn = frame.guildTabButtons[i]
         if not btn then
-            btn = Brand.MakeButton(frame.guildTabs, guild.name, 110, 24, function()
+            btn = Brand.MakeTextLink(frame.guildTabs, guild.name, function()
                 state.guildIndex = i
                 state.selectedMain = nil
                 state.altsView = false
                 GP:Refresh()
             end)
-            btn:SetPoint("TOPLEFT", frame.guildTabs, "TOPLEFT", x, 0)
             frame.guildTabButtons[i] = btn
         else
             btn.label:SetText(guild.name)
-            btn:ClearAllPoints()
-            btn:SetPoint("TOPLEFT", frame.guildTabs, "TOPLEFT", x, 0)
+            btn:SetWidth(math.max(40, btn.label:GetStringWidth() + 8))
         end
-        btn:SetSelected(i == state.guildIndex)
+        btn:ClearAllPoints()
+        if previous then
+            btn:SetPoint("LEFT", previous, "RIGHT", 14, 0)
+        else
+            btn:SetPoint("TOPLEFT", frame.guildTabs, "TOPLEFT", 0, 0)
+        end
+        local selected = (i == state.guildIndex)
+        btn.label:SetTextColor(selected and 1 or Brand.ACCENT[1],
+            selected and 1 or Brand.ACCENT[2], selected and 1 or Brand.ACCENT[3], 1)
+        btn:SetScript("OnLeave", function()
+            local sel = (i == state.guildIndex)
+            btn.label:SetTextColor(sel and 1 or Brand.ACCENT[1],
+                sel and 1 or Brand.ACCENT[2], sel and 1 or Brand.ACCENT[3], 1)
+        end)
         btn:Show()
-        x = x + 114
+        previous = btn
     end
 end
 
@@ -601,6 +622,14 @@ end
 local rowPool = {}
 local midButtonPool = {}
 
+-- List rows use a bare clickable frame with a subtle accent-tinted
+-- highlight texture (shown on hover OR when selected), NOT a boxed button -
+-- matches Xal's Reins' own list-row pattern (2026-08-19 brand refresh).
+-- A boxed button's SetSelected swapped the label to solid white, which
+-- would have fought the inline |cff...|r color codes this addon already
+-- uses for confirmed-main (green) / unreviewed (orange) names - the
+-- highlight-texture approach avoids that conflict entirely, on top of just
+-- not being "boxy."
 local function GetRow(i)
     if not rowPool[i] then
         -- frame.listRowWidth accounts for the scrollbar track's own 18px so
@@ -610,18 +639,36 @@ local function GetRow(i)
         -- wall - confirmed 2026-08-12. Label keeps its own 10px text padding
         -- inside the (now narrower) button.
         local rowInset = 12
-        local btn = Brand.MakeButton(frame.listContent, "", frame.listRowWidth - rowInset * 2, 26, nil)
-        btn:ClearAllPoints()
+        local btn = CreateFrame("Button", nil, frame.listContent)
+        btn:SetSize(frame.listRowWidth - rowInset * 2, 26)
         btn:SetPoint("TOPLEFT", frame.listContent, "TOPLEFT", rowInset, -(i - 1) * 30)
-        btn.label:SetJustifyH("LEFT")
-        btn.label:ClearAllPoints()
-        btn.label:SetPoint("LEFT", btn, "LEFT", 10, 0)
-        btn.label:SetPoint("RIGHT", btn, "RIGHT", -10, 0)
-        -- Bumped from Brand.MakeButton's default GameFontNormal (~12-14pt)
-        -- for readability (2026-08-12), and follows the Text page's font
+
+        local hl = btn:CreateTexture(nil, "BACKGROUND")
+        hl:SetAllPoints()
+        hl:SetColorTexture(Brand.ACCENT[1], Brand.ACCENT[2], Brand.ACCENT[3], 0.16)
+        hl:Hide()
+        btn.highlight = hl
+
+        local label = btn:CreateFontString(nil, "OVERLAY")
+        label:SetJustifyH("LEFT")
+        label:SetPoint("LEFT", btn, "LEFT", 10, 0)
+        label:SetPoint("RIGHT", btn, "RIGHT", -10, 0)
+        -- Bumped from the old default GameFontNormal (~12-14pt) for
+        -- readability (2026-08-12), and follows the Text page's font
         -- family/size settings (this call runs once at row-creation, so it
         -- picks up whatever Brand.ApplySavedTheme set at login).
-        btn.label:SetFont(Brand.BODY_FONT_PATH, 15 * Brand.BODY_SIZE_SCALE, Brand.BODY_OUTLINE)
+        label:SetFont(Brand.BODY_FONT_PATH, 15 * Brand.BODY_SIZE_SCALE, Brand.BODY_OUTLINE)
+        btn.label = label
+
+        btn:SetScript("OnEnter", function(self) self.highlight:Show() end)
+        btn:SetScript("OnLeave", function(self)
+            if not self.selected then self.highlight:Hide() end
+        end)
+        function btn:SetSelected(selected)
+            self.selected = selected
+            self.highlight:SetShown(selected)
+        end
+
         rowPool[i] = btn
     end
     return rowPool[i]
@@ -629,7 +676,7 @@ end
 
 local function GetMidButton(i)
     if not midButtonPool[i] then
-        local btn = Brand.MakeButton(frame.midContent, "Alts", 40, 26, nil)
+        local btn = Brand.MakeTextLink(frame.midContent, "Alts", nil)
         btn:ClearAllPoints()
         btn:SetPoint("TOPLEFT", frame.midContent, "TOPLEFT", 0, -(i - 1) * 30)
 
@@ -748,7 +795,7 @@ end
 -- box"). state.addingAltFor tracks which main currently has this open so
 -- it survives the GP:Refresh() a suggestion-click triggers.
 local function CreateAddAltControl(parent, guild, mainCharName, anchorPoint, x, y)
-    local btn = Brand.MakeButton(parent, "+ Add Alt", 100, 22, function()
+    local btn = Brand.MakeTextLink(parent, "+ Add Alt", function()
         state.addingAltFor = mainCharName
         GP:Refresh()
     end)
@@ -901,7 +948,7 @@ local function BuildProfileFields(parent, member, guild, yOffset)
 
     -- Font bumped 20 -> 24 for readability (2026-08-12).
     local nameLabel = parent:CreateFontString(nil, "OVERLAY")
-    nameLabel:SetFont("Fonts\\MORPHEUS.TTF", 24, "OUTLINE")
+    nameLabel:SetFont(Brand.TITLE_FONT_PATH, 24, "OUTLINE")
     nameLabel:SetTextColor(Brand.ACCENT[1], Brand.ACCENT[2], Brand.ACCENT[3])
     nameLabel:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, -y)
     nameLabel:SetText(member.charName)
@@ -910,16 +957,20 @@ local function BuildProfileFields(parent, member, guild, yOffset)
     -- "Main" button, right next to the name - explicitly confirms this
     -- character as a real Main (Roster.lua's ConfirmMain), which permanently
     -- excludes them from ever appearing as an alt candidate for anyone else.
-    -- Stays visible and highlighted (SetSelected) once confirmed instead of
-    -- disappearing - confirmed 2026-08-12: "it shouldn't totally disappear."
-    -- Works both for promoting an existing alt back AND for locking in a
-    -- plain default-synced member.
-    local mainBtn = Brand.MakeButton(parent, "Main", 60, 22, function()
+    -- Stays visible and white (link-style "selected" state, since
+    -- Brand.MakeTextLink has no SetSelected of its own) once confirmed
+    -- instead of disappearing - confirmed 2026-08-12: "it shouldn't totally
+    -- disappear." Works both for promoting an existing alt back AND for
+    -- locking in a plain default-synced member.
+    local mainBtn = Brand.MakeTextLink(parent, "Main", function()
         R:ConfirmMain(guild, member.charName)
         GP:Refresh()
     end)
     mainBtn:SetPoint("LEFT", nameLabel, "RIGHT", 12, 0)
-    mainBtn:SetSelected(member.confirmedMain)
+    if member.confirmedMain then
+        mainBtn.label:SetTextColor(1, 1, 1, 1)
+        mainBtn:SetScript("OnLeave", function() mainBtn.label:SetTextColor(1, 1, 1, 1) end)
+    end
     table.insert(detailWidgets, mainBtn)
     y = y + 34
 
@@ -1055,8 +1106,8 @@ local function BuildProfileFields(parent, member, guild, yOffset)
         table.insert(detailWidgets, notesBorder)
         y = y + 90 + 12
 
-        local officerBtn = Brand.MakeButton(parent,
-            member.isOfficer and "Remove Officer" or "Make Officer", 130, 22, function()
+        local officerBtn = Brand.MakeTextLink(parent,
+            member.isOfficer and "Remove Officer" or "Make Officer", function()
                 R:SetOfficer(guild, member.charName, not member.isOfficer)
                 GP:Refresh()
             end)
@@ -1070,25 +1121,25 @@ local function BuildProfileFields(parent, member, guild, yOffset)
         -- doesn't hold the rank itself, so these stay behind the strict
         -- R:IsGuildMaster() check alone, never R:HasGMEditAccess.
         if R:IsGuildMaster() then
-            local promoteBtn = Brand.MakeButton(parent, "Promote", 90, 22, function()
+            local promoteBtn = Brand.MakeTextLink(parent, "Promote", function()
                 StaticPopup_Show("XRR_CONFIRM_PROMOTE", member.charName, nil, member.charName)
             end)
             promoteBtn:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, -y)
             table.insert(detailWidgets, promoteBtn)
 
-            local demoteBtn = Brand.MakeButton(parent, "Demote", 90, 22, function()
+            local demoteBtn = Brand.MakeTextLink(parent, "Demote", function()
                 StaticPopup_Show("XRR_CONFIRM_DEMOTE", member.charName, nil, member.charName)
             end)
-            demoteBtn:SetPoint("LEFT", promoteBtn, "RIGHT", 8, 0)
+            demoteBtn:SetPoint("LEFT", promoteBtn, "RIGHT", 14, 0)
             table.insert(detailWidgets, demoteBtn)
 
             -- Kick keeps its double confirmation - accepting the first popup
             -- only opens the second one, doesn't kick anyone yet (confirmed
             -- 2026-08-12, the most destructive action gets extra friction).
-            local kickBtn = Brand.MakeButton(parent, "Kick from Guild", 130, 22, function()
+            local kickBtn = Brand.MakeTextLink(parent, "Kick from Guild", function()
                 StaticPopup_Show("XRR_CONFIRM_KICK", member.charName, nil, member.charName)
             end)
-            kickBtn:SetPoint("LEFT", demoteBtn, "RIGHT", 8, 0)
+            kickBtn:SetPoint("LEFT", demoteBtn, "RIGHT", 14, 0)
             table.insert(detailWidgets, kickBtn)
             y = y + 32
         end
@@ -1129,20 +1180,32 @@ local function RenderDetailPane()
     if not state.selectedAlt and alts[1] then state.selectedAlt = alts[1].charName end
 
     for _, btn in ipairs(altTabPool) do btn:Hide() end
+    -- Link-style tabs (2026-08-19 brand refresh) - x-offset accumulates
+    -- each button's own measured width (a text link's width follows its
+    -- label, not a uniform box), tracked so CreateAddAltControl below can
+    -- still anchor relative to `parent` at the right spot afterward.
     local x = 0
     for i, alt in ipairs(alts) do
         local btn = altTabPool[i]
         if not btn then
-            btn = Brand.MakeButton(parent, "", 100, 24, nil)
+            btn = Brand.MakeTextLink(parent, "", nil)
             altTabPool[i] = btn
         end
         btn:ClearAllPoints()
         btn:SetPoint("TOPLEFT", parent, "TOPLEFT", x, 0)
         btn.label:SetText(alt.charName)
-        btn:SetSelected(state.selectedAlt == alt.charName)
+        btn:SetWidth(math.max(40, btn.label:GetStringWidth() + 8))
+        local selected = (state.selectedAlt == alt.charName)
+        btn.label:SetTextColor(selected and 1 or Brand.ACCENT[1],
+            selected and 1 or Brand.ACCENT[2], selected and 1 or Brand.ACCENT[3], 1)
         btn:SetScript("OnClick", function()
             state.selectedAlt = alt.charName
             GP:Refresh()
+        end)
+        btn:SetScript("OnLeave", function()
+            local sel = (state.selectedAlt == alt.charName)
+            btn.label:SetTextColor(sel and 1 or Brand.ACCENT[1],
+                sel and 1 or Brand.ACCENT[2], sel and 1 or Brand.ACCENT[3], 1)
         end)
 
         if not btn.onlineDot then
@@ -1156,12 +1219,12 @@ local function RenderDetailPane()
 
         table.insert(detailWidgets, btn)
         btn:Show()
-        x = x + 104
+        x = x + btn:GetWidth() + 20
     end
 
     CreateAddAltControl(parent, guild, state.selectedMain, "TOPLEFT", x, 0)
 
-    local backBtn = Brand.MakeButton(parent, "< Back to Main", 130, 24, function()
+    local backBtn = Brand.MakeTextLink(parent, "< Back to Main", function()
         state.altsView = false
         GP:Refresh()
     end)
