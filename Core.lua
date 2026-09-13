@@ -17,5 +17,6 @@ eventFrame:SetScript("OnEvent", function(_, event)
         -- accent/background/font customization is in place from the start.
         XRR.BrandStyle.ApplySavedTheme()
         XRR.MinimapButton:Register()
+        XRR.WhatsNew:CheckAndShow()
     end
 end)
