@@ -13,10 +13,35 @@ local R = XRR.Roster
 
 local SIDEBAR_W = 132
 local CONTENT_W = 420
-local FW = 14 + SIDEBAR_W + 10 + 2 + 12 + CONTENT_W + 14
+-- Gap-to-content term is 26, not the original formula's 12 - frame.content
+-- is actually anchored 26px past the divider (see below), a later fix that
+-- never got reflected here. With the old "12" in this formula, content's
+-- real right edge (computed from the ACTUAL 26px anchor) landed exactly ON
+-- the window's outer edge instead of 14px before it - the missing 14px of
+-- right margin was silently eaten, which is what put the Home page's
+-- Discord link directly on the border line (confirmed via screenshot
+-- 2026-09-12, "the discord is over the line").
+local FW = 14 + SIDEBAR_W + 10 + 2 + 26 + CONTENT_W + 14
 -- Bumped from 460 - the Guild Master page (unreviewed list + officer
 -- management + add-officer field) needs real vertical room (2026-08-12).
 local FH = 560
+
+-- Manual "selected" color toggle for link-style radio-group/tab buttons
+-- (Brand.MakeTextLink has no built-in SetSelected the way the old boxed
+-- Brand.MakeButton did) - white when selected, accent gold otherwise. Wires
+-- OnLeave too, so hovering away doesn't strand a selected button on the
+-- generic hover-fade-back-to-accent color. 2026-08-19 brand refresh.
+local function SetLinkSelected(btn, selected)
+    local r, g, b = Brand.ACCENT[1], Brand.ACCENT[2], Brand.ACCENT[3]
+    if selected then r, g, b = 1, 1, 1 end
+    btn.label:SetTextColor(r, g, b, 1)
+    btn.selected = selected
+    btn:SetScript("OnLeave", function()
+        local rr, gg, bb = Brand.ACCENT[1], Brand.ACCENT[2], Brand.ACCENT[3]
+        if btn.selected then rr, gg, bb = 1, 1, 1 end
+        btn.label:SetTextColor(rr, gg, bb, 1)
+    end)
+end
 
 -- Opens Blizzard's real color picker with a live-preview callback - exact
 -- pattern already confirmed working in Quest Compass, copied rather than
@@ -112,6 +137,19 @@ end
 
 -- ── Home ─────────────────────────────────────────────────────────────
 local function BuildHome(content)
+    -- Standing Discord link, not tied to any one release - lives on Home
+    -- since the header itself is title+close only (confirmed brand
+    -- standard). Added 2026-08-19 (brand refresh) - this addon had no
+    -- in-game Discord link before.
+    -- content's own right edge lands EXACTLY on the window's outer edge
+    -- (CONTENT_W was sized with no margin allowance) - a bare (0,0) anchor
+    -- here put the link directly on the border line instead of inside it
+    -- (confirmed via screenshot 2026-09-12, "the discord is over the
+    -- line"). Inset by Brand.SAFE_MARGIN, same clearance the close button
+    -- gets from the window's own edge.
+    local discord = Brand.MakeDiscordLink(content)
+    discord:SetPoint("TOPRIGHT", content, "TOPRIGHT", -Brand.SAFE_MARGIN, 0)
+
     -- 144x144, matching Quest Compass's confirmed Home-page icon size - 48px
     -- and 88px were both tried there and found too small to appreciate any
     -- detail; there's no real space constraint here forcing it smaller.
@@ -133,7 +171,7 @@ local function BuildHome(content)
     rule:SetPoint("TOP", lead, "BOTTOM", 0, -12)
 
     local body = content:CreateFontString(nil, "OVERLAY")
-    body:SetFont("Fonts\\ARIALN.TTF", 15, "")
+    body:SetFont(Brand.BODY_FONT_PATH, 15, "")
     body:SetTextColor(0.85, 0.85, 0.85)
     body:SetPoint("TOP", rule, "BOTTOM", 0, -16)
     body:SetWidth(320)
@@ -160,14 +198,14 @@ end
 
 -- ── Data ─────────────────────────────────────────────────────────────
 local function BuildData(content)
-    local header = Brand.FS(content, "Storage", "Fonts\\MORPHEUS.TTF", 24, "OUTLINE",
+    local header = Brand.FS(content, "Storage", Brand.TITLE_FONT_PATH, 24, "OUTLINE",
         Brand.ACCENT[1], Brand.ACCENT[2], Brand.ACCENT[3])
     header:SetPoint("TOPLEFT", content, "TOPLEFT", 0, 0)
 
     Brand.DrawDivider(content, 0, 30, CONTENT_W)
 
     local desc = content:CreateFontString(nil, "OVERLAY")
-    desc:SetFont("Fonts\\ARIALN.TTF", 15, "")
+    desc:SetFont(Brand.BODY_FONT_PATH, 15, "")
     desc:SetTextColor(0.85, 0.85, 0.85)
     desc:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -46)
     desc:SetWidth(CONTENT_W)
@@ -187,7 +225,7 @@ local function BuildData(content)
     cb:SetPoint("TOPLEFT", desc, "BOTTOMLEFT", 0, -16)
     cb:SetChecked(XRR_DB.storageScope == "character")
     local label = content:CreateFontString(nil, "OVERLAY")
-    label:SetFont("Fonts\\ARIALN.TTF", 14, "")
+    label:SetFont(Brand.BODY_FONT_PATH, 14, "")
     label:SetTextColor(0.85, 0.85, 0.85)
     label:SetPoint("LEFT", cb, "RIGHT", 6, 0)
     label:SetText("Use per-character storage (instead of account-wide)")
@@ -203,7 +241,7 @@ local function BuildData(content)
     -- that only works when every character on the account is reading the
     -- same shared roster.
     local warn = content:CreateFontString(nil, "OVERLAY")
-    warn:SetFont("Fonts\\ARIALN.TTF", 12, "")
+    warn:SetFont(Brand.BODY_FONT_PATH, 12, "")
     warn:SetTextColor(0.9, 0.55, 0.3)
     warn:SetPoint("TOPLEFT", cb, "BOTTOMLEFT", 0, -10)
     warn:SetWidth(CONTENT_W - 8)
@@ -222,7 +260,7 @@ end
 -- nothing on this Options page ever performs Promote/Demote/Kick. Everyone
 -- else sees a plain explanation instead of the controls.
 local function BuildGuildMaster(content)
-    local header = Brand.FS(content, "Guild Master", "Fonts\\MORPHEUS.TTF", 24, "OUTLINE",
+    local header = Brand.FS(content, "Guild Master", Brand.TITLE_FONT_PATH, 24, "OUTLINE",
         Brand.ACCENT[1], Brand.ACCENT[2], Brand.ACCENT[3])
     header:SetPoint("TOPLEFT", content, "TOPLEFT", 0, 0)
     Brand.DrawDivider(content, 0, 30, CONTENT_W)
@@ -231,7 +269,7 @@ local function BuildGuildMaster(content)
 
     if not guild then
         local msg = content:CreateFontString(nil, "OVERLAY")
-        msg:SetFont("Fonts\\ARIALN.TTF", 15, "")
+        msg:SetFont(Brand.BODY_FONT_PATH, 15, "")
         msg:SetTextColor(0.85, 0.85, 0.85)
         msg:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -46)
         msg:SetWidth(CONTENT_W)
@@ -242,7 +280,7 @@ local function BuildGuildMaster(content)
 
     if not R:HasGMEditAccess(guild) then
         local msg = content:CreateFontString(nil, "OVERLAY")
-        msg:SetFont("Fonts\\ARIALN.TTF", 15, "")
+        msg:SetFont(Brand.BODY_FONT_PATH, 15, "")
         msg:SetTextColor(0.85, 0.85, 0.85)
         msg:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -46)
         msg:SetWidth(CONTENT_W)
@@ -255,7 +293,7 @@ local function BuildGuildMaster(content)
     local y = 46
     local unreviewed = R:GetUnreviewedMembers(guild)
     local countText = content:CreateFontString(nil, "OVERLAY")
-    countText:SetFont("Fonts\\ARIALN.TTF", 15, "")
+    countText:SetFont(Brand.BODY_FONT_PATH, 15, "")
     countText:SetTextColor(1, 0.53, 0)
     countText:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -y)
     countText:SetWidth(CONTENT_W)
@@ -269,12 +307,12 @@ local function BuildGuildMaster(content)
     for i = 1, math.min(#unreviewed, 3) do
         local m = unreviewed[i]
         local nameFs = content:CreateFontString(nil, "OVERLAY")
-        nameFs:SetFont("Fonts\\ARIALN.TTF", 14, "")
+        nameFs:SetFont(Brand.BODY_FONT_PATH, 14, "")
         nameFs:SetTextColor(0.9, 0.9, 0.9)
         nameFs:SetPoint("TOPLEFT", content, "TOPLEFT", 4, -y)
         nameFs:SetText(m.charName)
 
-        local welcomeBtn = Brand.MakeButton(content, "Send Welcome Message", 170, 22, function()
+        local welcomeBtn = Brand.MakeTextLink(content, "Send Welcome Message", function()
             ChatFrame_OpenChat("/w " .. m.charName .. " Welcome to the guild! ", DEFAULT_CHAT_FRAME)
         end)
         welcomeBtn:SetPoint("LEFT", nameFs, "RIGHT", 10, 0)
@@ -282,7 +320,7 @@ local function BuildGuildMaster(content)
     end
     if #unreviewed > 3 then
         local moreFs = content:CreateFontString(nil, "OVERLAY")
-        moreFs:SetFont("Fonts\\ARIALN.TTF", 13, "")
+        moreFs:SetFont(Brand.BODY_FONT_PATH, 13, "")
         moreFs:SetTextColor(0.6, 0.6, 0.6)
         moreFs:SetPoint("TOPLEFT", content, "TOPLEFT", 4, -y)
         moreFs:SetText("+" .. (#unreviewed - 3) .. " more - open the Guild Roster to see them.")
@@ -290,7 +328,7 @@ local function BuildGuildMaster(content)
     end
     y = y + 16
 
-    local officerHeader = Brand.FS(content, "Officers", "Fonts\\MORPHEUS.TTF", 18, "OUTLINE",
+    local officerHeader = Brand.FS(content, "Officers", Brand.TITLE_FONT_PATH, 18, "OUTLINE",
         Brand.ACCENT[1], Brand.ACCENT[2], Brand.ACCENT[3])
     officerHeader:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -y)
     y = y + 24
@@ -298,7 +336,7 @@ local function BuildGuildMaster(content)
     local officers = R:GetOfficers(guild)
     if #officers == 0 then
         local noneFs = content:CreateFontString(nil, "OVERLAY")
-        noneFs:SetFont("Fonts\\ARIALN.TTF", 13, "")
+        noneFs:SetFont(Brand.BODY_FONT_PATH, 13, "")
         noneFs:SetTextColor(0.6, 0.6, 0.6)
         noneFs:SetPoint("TOPLEFT", content, "TOPLEFT", 4, -y)
         noneFs:SetText("No officers yet.")
@@ -306,12 +344,12 @@ local function BuildGuildMaster(content)
     else
         for _, m in ipairs(officers) do
             local nameFs = content:CreateFontString(nil, "OVERLAY")
-            nameFs:SetFont("Fonts\\ARIALN.TTF", 14, "")
+            nameFs:SetFont(Brand.BODY_FONT_PATH, 14, "")
             nameFs:SetTextColor(0.9, 0.9, 0.9)
             nameFs:SetPoint("TOPLEFT", content, "TOPLEFT", 4, -y)
             nameFs:SetText(m.charName)
 
-            local removeBtn = Brand.MakeButton(content, "Remove", 80, 20, function()
+            local removeBtn = Brand.MakeTextLink(content, "Remove", function()
                 R:SetOfficer(guild, m.charName, false)
                 O:RefreshCurrentSection()
             end)
@@ -322,7 +360,7 @@ local function BuildGuildMaster(content)
     y = y + 8
 
     local addLabel = content:CreateFontString(nil, "OVERLAY")
-    addLabel:SetFont("Fonts\\ARIALN.TTF", 13, "")
+    addLabel:SetFont(Brand.BODY_FONT_PATH, 13, "")
     addLabel:SetTextColor(0.85, 0.85, 0.85)
     addLabel:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -y)
     addLabel:SetText("Add Officer")
@@ -359,7 +397,7 @@ end
 -- the GM or an officer without digging through the full roster
 -- (confirmed 2026-08-12).
 local function BuildCommunication(content)
-    local header = Brand.FS(content, "Communication", "Fonts\\MORPHEUS.TTF", 24, "OUTLINE",
+    local header = Brand.FS(content, "Communication", Brand.TITLE_FONT_PATH, 24, "OUTLINE",
         Brand.ACCENT[1], Brand.ACCENT[2], Brand.ACCENT[3])
     header:SetPoint("TOPLEFT", content, "TOPLEFT", 0, 0)
     Brand.DrawDivider(content, 0, 30, CONTENT_W)
@@ -367,7 +405,7 @@ local function BuildCommunication(content)
     local guild = R:GetGuilds()[1]
     if not guild then
         local msg = content:CreateFontString(nil, "OVERLAY")
-        msg:SetFont("Fonts\\ARIALN.TTF", 15, "")
+        msg:SetFont(Brand.BODY_FONT_PATH, 15, "")
         msg:SetTextColor(0.85, 0.85, 0.85)
         msg:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -46)
         msg:SetWidth(CONTENT_W)
@@ -378,14 +416,14 @@ local function BuildCommunication(content)
 
     local y = 46
     if guild.masterName then
-        local gmBtn = Brand.MakeButton(content, "Message Guild Master (" .. guild.masterName .. ")", 260, 24, function()
+        local gmBtn = Brand.MakeTextLink(content, "Message Guild Master (" .. guild.masterName .. ")", function()
             ChatFrame_OpenChat("/w " .. guild.masterName .. " ", DEFAULT_CHAT_FRAME)
         end)
         gmBtn:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -y)
         y = y + 34
     end
 
-    local officerHeader = Brand.FS(content, "Officers", "Fonts\\MORPHEUS.TTF", 18, "OUTLINE",
+    local officerHeader = Brand.FS(content, "Officers", Brand.TITLE_FONT_PATH, 18, "OUTLINE",
         Brand.ACCENT[1], Brand.ACCENT[2], Brand.ACCENT[3])
     officerHeader:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -y)
     y = y + 24
@@ -393,19 +431,19 @@ local function BuildCommunication(content)
     local officers = R:GetOfficers(guild)
     if #officers == 0 then
         local noneFs = content:CreateFontString(nil, "OVERLAY")
-        noneFs:SetFont("Fonts\\ARIALN.TTF", 13, "")
+        noneFs:SetFont(Brand.BODY_FONT_PATH, 13, "")
         noneFs:SetTextColor(0.6, 0.6, 0.6)
         noneFs:SetPoint("TOPLEFT", content, "TOPLEFT", 4, -y)
         noneFs:SetText("No officers set yet.")
     else
         for _, m in ipairs(officers) do
             local nameFs = content:CreateFontString(nil, "OVERLAY")
-            nameFs:SetFont("Fonts\\ARIALN.TTF", 14, "")
+            nameFs:SetFont(Brand.BODY_FONT_PATH, 14, "")
             nameFs:SetTextColor(0.9, 0.9, 0.9)
             nameFs:SetPoint("TOPLEFT", content, "TOPLEFT", 4, -y)
             nameFs:SetText(m.charName)
 
-            local whisperBtn = Brand.MakeButton(content, "Whisper", 90, 20, function()
+            local whisperBtn = Brand.MakeTextLink(content, "Whisper", function()
                 ChatFrame_OpenChat("/w " .. m.charName .. " ", DEFAULT_CHAT_FRAME)
             end)
             whisperBtn:SetPoint("LEFT", nameFs, "RIGHT", 10, 0)
@@ -420,7 +458,7 @@ end
 -- convention (confirmed 2026-08-12) rather than a much larger live-
 -- re-theme-everything rebuild.
 local function BuildDisplay(content)
-    local header = Brand.FS(content, "Display", "Fonts\\MORPHEUS.TTF", 24, "OUTLINE",
+    local header = Brand.FS(content, "Display", Brand.TITLE_FONT_PATH, 24, "OUTLINE",
         Brand.ACCENT[1], Brand.ACCENT[2], Brand.ACCENT[3])
     header:SetPoint("TOPLEFT", content, "TOPLEFT", 0, 0)
     Brand.DrawDivider(content, 0, 30, CONTENT_W)
@@ -457,6 +495,12 @@ local function BuildDisplay(content)
     _G["XRROpacitySliderLow"]:SetText("30%")
     _G["XRROpacitySliderHigh"]:SetText("100%")
     _G["XRROpacitySliderText"]:SetText(math.floor(XRR_DB.bgOpacity * 100) .. "%")
+    -- Blizzard's OptionsSliderTemplate hardcodes these gold - doesn't read
+    -- Brand.ACCENT at all, so the 2026-09-02 orange refresh needs an
+    -- explicit override here, the one native slider this addon has.
+    for _, suffix in ipairs({ "Low", "High", "Text" }) do
+        _G["XRROpacitySlider" .. suffix]:SetTextColor(Brand.ACCENT[1], Brand.ACCENT[2], Brand.ACCENT[3])
+    end
     slider:SetScript("OnValueChanged", function(_, value)
         XRR_DB.bgOpacity = value
         _G["XRROpacitySliderText"]:SetText(math.floor(value * 100) .. "%")
@@ -481,7 +525,7 @@ local OUTLINE_CHOICES = {
 }
 
 local function BuildText(content)
-    local header = Brand.FS(content, "Text", "Fonts\\MORPHEUS.TTF", 24, "OUTLINE",
+    local header = Brand.FS(content, "Text", Brand.TITLE_FONT_PATH, 24, "OUTLINE",
         Brand.ACCENT[1], Brand.ACCENT[2], Brand.ACCENT[3])
     header:SetPoint("TOPLEFT", content, "TOPLEFT", 0, 0)
     Brand.DrawDivider(content, 0, 30, CONTENT_W)
@@ -499,13 +543,13 @@ local function BuildText(content)
     local fontButtons = {}
     local fx = 0
     for _, opt in ipairs(FONT_CHOICES) do
-        local btn = Brand.MakeButton(content, opt.name, 120, 24, function()
+        local btn = Brand.MakeTextLink(content, opt.name, function()
             XRR_DB.bodyFontPath = opt.path
-            for _, b in ipairs(fontButtons) do b:SetSelected(b.optKey == opt.key) end
+            for _, b in ipairs(fontButtons) do SetLinkSelected(b, b.optKey == opt.key) end
         end)
         btn.optKey = opt.key
         btn:SetPoint("TOPLEFT", content, "TOPLEFT", fx, -y)
-        btn:SetSelected((XRR_DB.bodyFontPath or Brand.BODY_FONT_PATH) == opt.path)
+        SetLinkSelected(btn, (XRR_DB.bodyFontPath or Brand.BODY_FONT_PATH) == opt.path)
         table.insert(fontButtons, btn)
         fx = fx + 130
     end
@@ -517,13 +561,13 @@ local function BuildText(content)
     local sizeButtons = {}
     local sx = 0
     for _, opt in ipairs(SIZE_CHOICES) do
-        local btn = Brand.MakeButton(content, opt.name, 120, 24, function()
+        local btn = Brand.MakeTextLink(content, opt.name, function()
             XRR_DB.bodySizeScale = opt.scale
-            for _, b in ipairs(sizeButtons) do b:SetSelected(b.optKey == opt.key) end
+            for _, b in ipairs(sizeButtons) do SetLinkSelected(b, b.optKey == opt.key) end
         end)
         btn.optKey = opt.key
         btn:SetPoint("TOPLEFT", content, "TOPLEFT", sx, -y)
-        btn:SetSelected((XRR_DB.bodySizeScale or Brand.BODY_SIZE_SCALE) == opt.scale)
+        SetLinkSelected(btn, (XRR_DB.bodySizeScale or Brand.BODY_SIZE_SCALE) == opt.scale)
         table.insert(sizeButtons, btn)
         sx = sx + 130
     end
@@ -535,13 +579,13 @@ local function BuildText(content)
     local outlineButtons = {}
     local ox = 0
     for _, opt in ipairs(OUTLINE_CHOICES) do
-        local btn = Brand.MakeButton(content, opt.name, 120, 24, function()
+        local btn = Brand.MakeTextLink(content, opt.name, function()
             XRR_DB.bodyOutline = opt.flag
-            for _, b in ipairs(outlineButtons) do b:SetSelected(b.optKey == opt.key) end
+            for _, b in ipairs(outlineButtons) do SetLinkSelected(b, b.optKey == opt.key) end
         end)
         btn.optKey = opt.key
         btn:SetPoint("TOPLEFT", content, "TOPLEFT", ox, -y)
-        btn:SetSelected((XRR_DB.bodyOutline or Brand.BODY_OUTLINE) == opt.flag)
+        SetLinkSelected(btn, (XRR_DB.bodyOutline or Brand.BODY_OUTLINE) == opt.flag)
         table.insert(outlineButtons, btn)
         ox = ox + 130
     end
@@ -559,7 +603,7 @@ local activeSection = "Home"
 local function ShowSection(name)
     activeSection = name
     for key, btn in pairs(sectionButtons) do
-        btn:SetSelected(key == name)
+        SetLinkSelected(btn, key == name)
     end
     ClearContent()
     sections[name](frame.content)
@@ -608,13 +652,16 @@ local function CreateFramework()
     frame:SetFrameStrata("HIGH")
     frame:Hide()
 
+    -- Flat color only, no swirl image - confirmed 2026-09-02 brand refresh.
+    -- Brand.ApplyBackgroundImage still exists but is no longer called for
+    -- the default look.
     Brand.ApplyBackground(frame)
     Brand.DrawBorder(frame, 6)
 
     Brand.Title(frame, "Xal's Roster Roundup", 32, "TOP", frame, "TOP", 0, -20)
     Brand.DrawDivider(frame, Brand.SAFE_MARGIN, 80, FW - Brand.SAFE_MARGIN * 2)
 
-    local closeBtn = Brand.MakeButton(frame, "X", 24, 24, function() frame:Hide() end)
+    local closeBtn = Brand.MakeCloseButton(frame, function() frame:Hide() end)
     closeBtn:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -Brand.SAFE_MARGIN, -Brand.SAFE_MARGIN)
 
     -- Sidebar
@@ -637,20 +684,39 @@ local function CreateFramework()
     local sectionNames = { "Home", "Communication", "Text", "Display", "Guild Master", "Data" }
     local y = -32
     for _, name in ipairs(sectionNames) do
-        local btn = Brand.MakeButton(sidebar, name, 116, 24, function() ShowSection(name) end)
+        local btn = Brand.MakeTextLink(sidebar, name, function() ShowSection(name) end)
         btn:SetPoint("TOPLEFT", sidebar, "TOPLEFT", 8, y)
         sectionButtons[name] = btn
         y = y - 28
     end
 
     -- Footer, centered on the content area's span (divider to right border).
+    -- Version read live from the real installed .toc (same pattern already
+    -- confirmed working in Quest Compass) instead of a hand-typed string -
+    -- caught 2026-09-12 via screenshot still showing "v1.0.0" while the
+    -- addon was actually on 1.1.0, a real stale-string bug, not a display
+    -- bug - this addon is now on its 5th real version and the footer had
+    -- never been updated since the addon's initial release.
+    local function GetFooterVersion()
+        local v
+        if C_AddOns and C_AddOns.GetAddOnMetadata then
+            v = C_AddOns.GetAddOnMetadata("XalsRosterRoundup", "Version")
+        elseif _G.GetAddOnMetadata then
+            v = _G.GetAddOnMetadata("XalsRosterRoundup", "Version")
+        end
+        if v == "@project-version@" then return "dev" end
+        return v or "dev"
+    end
+    local installedVersion = GetFooterVersion()
+    local versionLabel = (installedVersion == "dev") and "dev build" or ("v" .. installedVersion)
+
     local footer = frame:CreateFontString(nil, "OVERLAY")
-    footer:SetFont("Fonts\\ARIALN.TTF", 12, "")
+    footer:SetFont(Brand.BODY_FONT_PATH, 12, "")
     footer:SetTextColor(Brand.GOLD[1], Brand.GOLD[2], Brand.GOLD[3])
     footer:SetPoint("BOTTOMLEFT", vDivider, "BOTTOMRIGHT", 12, Brand.SAFE_MARGIN)
     footer:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -Brand.SAFE_MARGIN, Brand.SAFE_MARGIN)
     footer:SetJustifyH("CENTER")
-    footer:SetText("v1.0.0  ·  by Xal  ·  A Xal's Creation")
+    footer:SetText(versionLabel .. "  ·  by Xal  ·  A Xal's Creation")
 
     ShowSection("Home")
 end
