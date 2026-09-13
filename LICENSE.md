@@ -9,8 +9,8 @@ section that applies to the part you're interested in.
 
 Applies to all `.lua`, `.toc` files, and every custom asset bundled with this
 addon (`Icon.png`, `CFIcon.png`, and the icons in `Textures/`) — everything in
-this repository **except** the third-party libraries in `libs/` (see section 2
-below).
+this repository **except** the third-party libraries in `libs/` (see section 2)
+and the bundled fonts in `Fonts/` (see section 3).
 
 Copyright (c) 2026 XalaMental. All rights reserved.
 
@@ -44,6 +44,16 @@ library's own file for anything it declares itself.
 
 ---
 
+## 3. Bundled Fonts
+
+`Fonts/CustomFont.ttf` (Simply Sans Bold) and `Fonts/FiraSans-Medium.ttf`
+(Fira Sans Medium) are licensed under the SIL Open Font License, not the
+terms above — see `Fonts/SimplySans-LICENSE.txt` and
+`Fonts/FiraSans-LICENSE.txt` for the full text. They're redistributed here
+exactly as their own licenses permit.
+
+---
+
 ## Summary
 
 | Content | License | Can I fork/reuse it? |
@@ -54,3 +64,5 @@ library's own file for anything it declares itself.
 | `libs/CallbackHandler/` | BSD (2-clause) | Yes — under BSD's terms |
 | `libs/LibDataBroker/` | Unrestricted (standard convention, unstated in-file) | Yes |
 | `libs/LibDBIcon/` | Unrestricted (standard convention, unstated in-file) | Yes |
+| `Fonts/CustomFont.ttf` | SIL Open Font License | Yes — under the OFL's terms |
+| `Fonts/FiraSans-Medium.ttf` | SIL Open Font License | Yes — under the OFL's terms |
