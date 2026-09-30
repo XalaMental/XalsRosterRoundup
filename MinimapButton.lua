@@ -18,9 +18,12 @@ function MB:Register()
         type = "launcher",
         text = "Xal's Roster Roundup",
         icon = MINIMAP_ICON,
+        -- Both buttons open the same single window now (2026-09-20 merge) -
+        -- right-click just jumps straight to the Roster page instead of
+        -- opening a separate popup, since that popup no longer exists.
         OnClick = function(_, button)
             if button == "RightButton" then
-                XRR.GuildPanel:Toggle()
+                XRR.Options:OpenToRoster()
             else
                 XRR.Options:Toggle()
             end
@@ -28,7 +31,7 @@ function MB:Register()
         OnTooltipShow = function(tooltip)
             tooltip:AddLine("Xal's Roster Roundup")
             tooltip:AddLine("|cff999999Left-click|r to open Options")
-            tooltip:AddLine("|cff999999Right-click|r to open the Guild Roster")
+            tooltip:AddLine("|cff999999Right-click|r to jump to the Guild Roster")
         end,
     })
 
