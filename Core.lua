@@ -18,5 +18,6 @@ eventFrame:SetScript("OnEvent", function(_, event)
         XRR.BrandStyle.ApplySavedTheme()
         XRR.MinimapButton:Register()
         XRR.WhatsNew:CheckAndShow()
+        XRR.RosterAlertIcon:Init()
     end
 end)
