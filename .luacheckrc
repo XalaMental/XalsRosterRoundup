@@ -14,6 +14,8 @@ globals = {
     "XRR_CharDB",
     "StaticPopupDialogs", -- a real mutable table addons add popup entries to
     "ColorPickerFrame", -- Blizzard's own color picker, fields set directly on it
+    "SLASH_XRRAPPS1", -- this addon's own slash-command name global
+    "SlashCmdList", -- Blizzard's own table, addons add entries to it directly
 }
 
 -- Read-only: real WoW client API/globals + the bundled libs' own globals.
@@ -40,6 +42,42 @@ read_globals = {
     "ChatFontNormal",
     "C_AddOns",
     "GetAddOnMetadata",
+    "C_Club",
+    "C_ClubFinder",
+    "C_CreatureInfo",
+    "RAID_CLASS_COLORS",
+    "Enum",
+    "print",
+    "CommunitiesFrame",
+    "time",
+    "date",
+    "GetGuildRosterLastOnline",
+    "GuildControlGetRankName",
+    "GuildControlGetNumRanks",
+    "UIDropDownMenu_SetWidth",
+    "UIDropDownMenu_SetText",
+    "UIDropDownMenu_Initialize",
+    "UIDropDownMenu_CreateInfo",
+    "UIDropDownMenu_AddButton",
+    "CanGuildPromote",
+    "CanGuildDemote",
+    "CanGuildRemove",
+    "CanGuildInvite",
+    "C_FriendList",
+    "GetChannelList",
+    "GetRealZoneText",
+    "SendChatMessage",
+    "Clamp",
+    "CreateMacro",
+    "EditMacro",
+    "GetMacroIndexByName",
+    "SetBindingMacro",
+    "GetBindingKey",
+    "SaveBindings",
+    "GetCurrentBindingSet",
+    "ConcatinateServerNameToPlayerName",
+    "UnitFullName",
+    "GetCursorPosition",
 }
 
 -- Textures/backdrop tables and long chained SetPoint calls read as "unused
