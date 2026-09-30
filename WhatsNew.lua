@@ -92,8 +92,12 @@ local function BuildFrame(installedVersion)
     end
 
     -- Flat color only, no swirl image - confirmed 2026-09-02 brand refresh.
+    -- No outer border either (2026-09-20) - every window in the addon is
+    -- borderless now, matching the Options window's cleaner look against
+    -- the darker background.
+    -- Outer border restored (2026-09-20) - same fix as Options/GuildPanel.
     Brand.ApplyBackground(f)
-    Brand.DrawBorder(f)
+    Brand.DrawBorder(f, 1)
 
     local data = W.WHATS_NEW
     Brand.Title(f, "What's New", 26, "TOP", f, "TOP", 0, -24)
