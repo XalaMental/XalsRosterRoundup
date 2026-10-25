@@ -35,17 +35,18 @@ XRR = XRR or {}
 XRR.Roster = {}
 local R = XRR.Roster
 
--- Storage scope: account-wide (XRR_DB) vs per-character (XRR_CharDB). The
--- Settings toggle flips XRR_DB.storageScope; both tables always exist so
--- switching the toggle never loses previously-entered data in either store.
+-- Everything is stored account-wide (XRR_DB): one roster per guild, kept under
+-- the guild's name, so an account with characters in different guilds simply
+-- holds each guild side by side. (There used to be a per-character storage
+-- switch; it was removed - it added nothing over this and cut the Guild
+-- Master's linked alts off from the Guild Master tools.) XRR_CharDB is still
+-- declared because the .toc lists it as a per-character saved variable; any
+-- roster a character kept there is left untouched, just no longer read.
 XRR_DB = XRR_DB or {}
 XRR_CharDB = XRR_CharDB or {}
+XRR_DB.storageScope = nil
 
 local function ActiveStore()
-    if XRR_DB.storageScope == "character" then
-        XRR_CharDB.guilds = XRR_CharDB.guilds or {}
-        return XRR_CharDB.guilds
-    end
     XRR_DB.guilds = XRR_DB.guilds or {}
     return XRR_DB.guilds
 end
@@ -61,6 +62,7 @@ end
 local function NotifySync(guild)
     for _, fn in ipairs(syncCallbacks) do fn(guild) end
 end
+R.notifyFn = NotifySync
 
 function R:GetGuilds()
     return ActiveStore()
@@ -100,6 +102,146 @@ function R:RemoveGuild(index)
     table.remove(ActiveStore(), index)
 end
 
+-- Officer tools ----------------------------------------------------------------
+-- Personal officer preferences, kept account-wide (not per guild).
+local OFFICER_DEFAULTS = {
+    checkInMessage = "Hey {player}, haven't seen you in a while - everything okay? We'd love to have you back in {guild}.",
+    inactiveDays = 30,
+    syncEnabled = true,
+}
+
+function R:GetOfficerDB()
+    XRR_DB.officer = XRR_DB.officer or {}
+    for k, v in pairs(OFFICER_DEFAULTS) do
+        if XRR_DB.officer[k] == nil then XRR_DB.officer[k] = v end
+    end
+    return XRR_DB.officer
+end
+
+function R:GetInactiveDays()
+    return math.max(1, tonumber(R:GetOfficerDB().inactiveDays) or 30)
+end
+
+-- Lets other files (Sync.lua) tell the UI that something changed.
+function R:NotifyChanged(guild)
+    local fn = R.notifyFn
+    if fn then fn(guild) end
+end
+
+-- Promotion rules: days in a rank before someone is ready for the next one.
+-- guild.promotionRules[rankOrder] = days (no entry = off). Set by the Guild
+-- Master (and shared with officers through Sync).
+function R:SetPromotionRule(guild, rankOrder, days)
+    guild.promotionRules = guild.promotionRules or {}
+    days = tonumber(days) or 0
+    guild.promotionRules[rankOrder] = (days > 0) and math.floor(days) or nil
+    guild.promotionRulesAt = time()
+    R:NotifyChanged(guild)
+end
+
+-- Members who've been in their rank long enough, and that this player can
+-- actually promote (CanGuildPromote, and only up to a rank below their own).
+function R:GetPromotionCandidates(guild)
+    local out = {}
+    if not guild or not (CanGuildPromote and CanGuildPromote()) then return out end
+    local rules = guild.promotionRules or {}
+    if next(rules) == nil then return out end
+    local _, _, myRankIndex = GetGuildInfo("player")
+    local myOrder = (myRankIndex or 0) + 1
+    local nameByOrder = {}
+    for _, rank in ipairs(R.GetGuildRankNames()) do nameByOrder[rank.order] = rank.name end
+    for charName, m in pairs(guild.members) do
+        local days = m.rankOrder and rules[m.rankOrder]
+        if days and days > 0 and m.rankOrder > 1 and not R:IsOwnCharacter(charName) then
+            local targetOrder = m.rankOrder - 1
+            if myOrder == 1 or targetOrder > myOrder then
+                local since = R:GetPromotedDate(guild, charName) or R:GetJoinDate(guild, charName)
+                if since then
+                    local inRank = math.floor((time() - since) / 86400)
+                    if inRank >= days then
+                        table.insert(out, {
+                            charName = charName, rankName = m.rankName, targetOrder = targetOrder,
+                            targetName = nameByOrder[targetOrder] or "?", days = inRank, rule = days,
+                        })
+                    end
+                end
+            end
+        end
+    end
+    table.sort(out, function(a, b) return a.days > b.days end)
+    return out
+end
+
+-- Strikes: a dated list of problems per member, kept apart from notes.
+function R:AddStrike(guild, charName, text)
+    local m = guild.members[charName]
+    text = tostring(text or ""):gsub("^%s+", ""):gsub("%s+$", "")
+    if not m or text == "" then return end
+    m.strikes = m.strikes or {}
+    table.insert(m.strikes, { at = time(), text = text:sub(1, 120) })
+    R:AddLogEntry(guild, "note", charName .. " got a strike: " .. text:sub(1, 120))
+end
+
+function R:RemoveStrike(guild, charName, index)
+    local m = guild.members[charName]
+    if m and m.strikes and m.strikes[index] then
+        table.remove(m.strikes, index)
+    end
+end
+
+-- Online count, level split and online-by-class, from the live roster.
+function R:GetOverview()
+    local total = GetNumGuildMembers()
+    local online, maxLevel, below = 0, 0, 0
+    local cap = GetMaxLevelForPlayerExpansion and GetMaxLevelForPlayerExpansion() or 90
+    local byClass = {}
+    for i = 1, total do
+        local name, _, _, level, className, _, _, _, isOnline = GetGuildRosterInfo(i)
+        if name then
+            if level and level >= cap then maxLevel = maxLevel + 1 else below = below + 1 end
+            if isOnline then
+                online = online + 1
+                if className then byClass[className] = (byClass[className] or 0) + 1 end
+            end
+        end
+    end
+    local classes = {}
+    for cls, n in pairs(byClass) do table.insert(classes, { name = cls, n = n }) end
+    table.sort(classes, function(a, b) if a.n ~= b.n then return a.n > b.n end return a.name < b.name end)
+    return { total = total, online = online, maxLevel = maxLevel, below = below, classes = classes }
+end
+
+-- Login check -----------------------------------------------------------------
+-- The first full roster read of a session (the "login pass") compares the
+-- roster saved at logoff with the live one. Joins and rank changes it finds
+-- there, and members who are gone and weren't seen this session, happened
+-- while you were away: they wait in guild.awayChanges for you to review on
+-- the Log page instead of going straight into the Log with today's date.
+R.sessionStart = time()
+local loginPassDone, awaySinceCaptured = {}, {}
+
+function R:GetAwayChanges(guild)
+    return (guild and guild.awayChanges) or {}
+end
+
+function R:AddAwayToLog(guild, index)
+    local change = guild.awayChanges and guild.awayChanges[index]
+    if not change then return end
+    R:AddLogEntry(guild, change.category, change.text .. " (while you were away)", change.time)
+    table.remove(guild.awayChanges, index)
+end
+
+function R:AddAllAwayToLog(guild)
+    for _, change in ipairs(guild.awayChanges or {}) do
+        R:AddLogEntry(guild, change.category, change.text .. " (while you were away)", change.time)
+    end
+    guild.awayChanges = {}
+end
+
+function R:ClearAway(guild)
+    guild.awayChanges = {}
+end
+
 -- Members --------------------------------------------------------------
 
 function R:AddMember(guild, charName)
@@ -107,9 +249,9 @@ function R:AddMember(guild, charName)
         charName = charName,
         nickname = "",
         isMain = true,
-        -- Default sync state ONLY - not the same as an officer explicitly
-        -- confirming this person as a real main. See ConfirmMain below.
-        confirmedMain = false,
+        -- Everyone who joins is a main automatically; they only become an alt
+        -- if someone links them to a main (see ConvertToAlt).
+        confirmedMain = true,
         linkedMain = nil,
         profession1 = "",
         profession2 = "",
@@ -264,6 +406,19 @@ function R:ClearBirthday(guild, charName)
     m.birthday = nil
 end
 
+-- A member nobody has touched yet: no nickname, notes, professions,
+-- birthday or manual dates, and not linked as anyone's alt. The
+-- Roster list marks these with an asterisk so you can see at a glance who
+-- still needs filling in.
+function R:IsUntouched(m)
+    if not m then return false end
+    local function Blank(s) return s == nil or s == "" end
+    return Blank(m.nickname) and Blank(m.notes) and Blank(m.officerNote) and Blank(m.customNotes)
+        and Blank(m.profession1) and Blank(m.profession2)
+        and not m.birthday and not m.joinDateOverride and not m.joinDateUnknown
+        and not m.promotedOverride and not m.linkedMain
+end
+
 function R:GetBirthday(guild, charName)
     local m = guild.members[charName]
     return m and m.birthday or nil
@@ -286,19 +441,17 @@ function R:ConvertToAlt(guild, charName, mainCharName)
     if not m then return end
     m.isMain = false
     m.linkedMain = mainCharName
+    m.confirmedMain = false
 end
 
--- Breaks the link, back to the plain default "Main, not yet confirmed"
--- state - same as a member who's never been touched by any of this.
--- Deliberately NOT the same as ConfirmMain: this doesn't lock them in or
--- swap anyone else's link, it just undoes the Add Alt that created this
--- link in the first place, leaving them free to be linked to someone else.
+-- Breaks the link: they go straight back to being a main (everyone is a
+-- main unless linked to one), free to be linked to someone else.
 function R:UnlinkAlt(guild, charName)
     local m = guild.members[charName]
     if not m then return end
     m.isMain = true
     m.linkedMain = nil
-    m.confirmedMain = false
+    m.confirmedMain = true
 end
 
 -- What the "Main" button does - whether promoting an existing alt back, or
@@ -368,13 +521,17 @@ function R:GetMains(guild)
     return mains
 end
 
--- Who's actually eligible to become someone's alt: a Main that has NOT
--- been explicitly confirmed via ConfirmMain (see above). A confirmed Main
--- is permanently excluded from every other Main's candidate pool.
+-- Who can be offered as someone's alt: any main that has no alts of its
+-- own (a main with alts would leave them dangling), other than the main
+-- being edited.
 function R:GetAltCandidates(guild, excludeCharName)
+    local hasAlts = {}
+    for _, m in pairs(guild.members) do
+        if not m.isMain and m.linkedMain then hasAlts[m.linkedMain] = true end
+    end
     local candidates = {}
     for _, m in pairs(guild.members) do
-        if m.isMain and not m.confirmedMain and m.charName ~= excludeCharName then
+        if m.isMain and not hasAlts[m.charName] and m.charName ~= excludeCharName then
             table.insert(candidates, m)
         end
     end
@@ -482,12 +639,39 @@ function R:SyncFromLiveGuild()
     -- Live rank names, read straight from GetGuildRosterInfo, are real
     -- shared server state every player's client can see - that's the only
     -- thing an addon can actually compare across logins to catch a change.
+    if not guild.autoMainDone then
+        for _, m in pairs(guild.members) do
+            if m.isMain and not m.linkedMain then m.confirmedMain = true end
+        end
+        guild.autoMainDone = true
+    end
     guild.rankChanges = guild.rankChanges or {}
     guild.bans = guild.bans or {}
     guild.bannedRejoins = guild.bannedRejoins or {}
 
+    local isLoginPass = not loginPassDone[guild.name]
+    if isLoginPass and not awaySinceCaptured[guild.name] then
+        awaySinceCaptured[guild.name] = true
+        guild.awaySince = guild.lastSyncAt
+    end
+    guild.awayChanges = guild.awayChanges or {}
+    local function Away(category, text)
+        table.insert(guild.awayChanges, { category = category, text = text, time = time() })
+        while #guild.awayChanges > 200 do table.remove(guild.awayChanges, 1) end
+    end
+
     local seen = {}
     local numMembers = GetNumGuildMembers()
+
+    -- First-ever sync for this guild (nothing tracked yet) is a silent
+    -- baseline: everyone currently in the guild "joined" before this addon
+    -- was watching, so logging them all as joins is just noise.
+    local startCount = 0
+    for _ in pairs(guild.members) do
+        startCount = startCount + 1
+    end
+    local silentJoins = startCount == 0
+
     for i = 1, numMembers do
         -- Rank index 0 is ALWAYS the Guild Master - a hard rule of WoW's
         -- rank system, not something a guild can configure away, unlike
@@ -515,9 +699,16 @@ function R:SyncFromLiveGuild()
         -- not even marking it seen - means it just gets picked up cleanly
         -- on the next throttled pass once the client has real data, same
         -- as GRM's own guard.
+        -- A row that exists counts as "still in the guild" even when its
+        -- other data is bad this pass (blank GUID right after login).
+        -- Skipping the row's UPDATE is right; treating it as ABSENT is what
+        -- turned a bad login read into a wave of fake "left" entries
+        -- followed by a wave of fake "joined" entries once real data came in.
+        if name then
+            seen[name:match("^([^-]+)") or name] = true
+        end
         if name and guid and guid ~= "" then
             local shortName = name:match("^([^-]+)") or name
-            seen[shortName] = true
             local m = guild.members[shortName]
             if not m then
                 -- Before treating this as a genuine new member: the same
@@ -549,12 +740,18 @@ function R:SyncFromLiveGuild()
                     -- 2026-09-20): banning never blocks a rejoin (no
                     -- Blizzard API for that), it just warns you when it
                     -- happens.
-                    if guild.bans[shortName] then
-                        table.insert(guild.bannedRejoins, { charName = shortName, time = time() })
-                        R:AddLogEntry(guild, "banrejoin", shortName .. " just rejoined the guild - they're on your ban list.")
-                        print("|cffff3333[Roster Roundup]|r " .. shortName .. " just rejoined the guild - they're on your ban list.")
-                    else
-                        R:AddLogEntry(guild, "join", shortName .. " joined the guild.")
+                    if not silentJoins then
+                        if guild.bans[shortName] then
+                            table.insert(guild.bannedRejoins, { charName = shortName, time = time() })
+                            R:AddLogEntry(guild, "banrejoin", shortName .. " just rejoined the guild - they're on your ban list.")
+                            print("|cffff3333[Roster Roundup]|r " .. shortName .. " just rejoined the guild - they're on your ban list.")
+                        else
+                            if isLoginPass then
+                                Away("join", shortName .. " joined the guild.")
+                            else
+                                R:AddLogEntry(guild, "join", shortName .. " joined the guild.")
+                            end
+                        end
                     end
                 end
             elseif m.rankName and m.rankName ~= rankName then
@@ -567,9 +764,13 @@ function R:SyncFromLiveGuild()
                 -- through this addon's own rank dropdown, and this same
                 -- generic line covers both cases without guessing.
                 local wasPromoted = (rankIndex + 1) < m.rankOrder
-                R:AddLogEntry(guild, wasPromoted and "promote" or "demote",
-                    string.format("%s was %s from %s to %s.", shortName,
-                        wasPromoted and "promoted" or "demoted", m.rankName, rankName))
+                local rankText = string.format("%s was %s from %s to %s.", shortName,
+                    wasPromoted and "promoted" or "demoted", m.rankName, rankName)
+                if isLoginPass then
+                    Away(wasPromoted and "promote" or "demote", rankText)
+                else
+                    R:AddLogEntry(guild, wasPromoted and "promote" or "demote", rankText)
+                end
                 m.rankName = rankName
             elseif not m.rankName then
                 -- First sync since this field existed - record the current
@@ -582,9 +783,19 @@ function R:SyncFromLiveGuild()
             if m.level and level and level > m.level then
                 R:AddLogEntry(guild, "levelup", shortName .. " leveled up to " .. level .. ".")
             end
+            -- A member who was gone for the inactive-days stretch and is
+            -- online again gets a "returned" entry.
+            local yrs, mos, dys = GetGuildRosterLastOnline(i)
+            local isOnlineNow = (yrs == nil)
+            local awayDays = isOnlineNow and 0 or (yrs * 365 + (mos or 0) * 30 + (dys or 0))
+            if not silentJoins and isOnlineNow and (m.offlineDays or 0) >= R:GetInactiveDays() then
+                R:AddLogEntry(guild, "return", shortName .. " is back after " .. m.offlineDays .. " days.")
+            end
+            m.offlineDays = awayDays
             m.level = level
             m.className = className
             m.guid = guid
+            m.lastSeenAt = time()
             -- Officer status refreshed live from the real rank permission
             -- every sync, replacing the old manual Add/Remove Officer UI
             -- entirely (confirmed 2026-09-20: "it's in the guild ranks, is
@@ -634,15 +845,41 @@ function R:SyncFromLiveGuild()
         return guild
     end
 
+    -- A member is only removed (and logged as left) after being absent from
+    -- reads for LEAVE_CONFIRM_SECONDS straight. One partial or odd read can
+    -- no longer wipe someone and then re-add them as a "new" join a minute
+    -- later; a real departure still lands, just two minutes late.
+    local LEAVE_CONFIRM_SECONDS = 120
+    guild.pendingLeave = guild.pendingLeave or {}
     for charName in pairs(guild.members) do
-        if not seen[charName] then
-            -- No way to tell kicked apart from quit-on-their-own from
-            -- roster data alone - Blizzard doesn't expose that.
-            R:AddLogEntry(guild, "left", charName .. " left the guild.")
-            guild.members[charName] = nil
+        if seen[charName] then
+            guild.pendingLeave[charName] = nil
+        else
+            local firstMissing = guild.pendingLeave[charName]
+            if not firstMissing then
+                guild.pendingLeave[charName] = time()
+            elseif time() - firstMissing >= LEAVE_CONFIRM_SECONDS then
+                -- No way to tell kicked apart from quit-on-their-own from
+                -- roster data alone - Blizzard doesn't expose that.
+                -- Last seen before this session started = it happened while
+                -- you were away; otherwise it just happened.
+                local gone = guild.members[charName]
+                if gone and (gone.lastSeenAt or 0) < R.sessionStart then
+                    Away("left", charName .. " is no longer in the guild.")
+                else
+                    R:AddLogEntry(guild, "left", charName .. " left the guild.")
+                end
+                guild.members[charName] = nil
+                guild.pendingLeave[charName] = nil
+            end
         end
     end
 
+    -- A full read went through: this is the moment the roster was last
+    -- known good (used as "logged off at" next session), and the login
+    -- pass is over.
+    guild.lastSyncAt = time()
+    loginPassDone[guild.name] = true
     return guild
 end
 
@@ -837,9 +1074,9 @@ end
 -- Capped so a long-lived guild's SavedVariables file can't grow forever.
 local MAX_LOG_ENTRIES = 500
 
-function R:AddLogEntry(guild, category, text)
+function R:AddLogEntry(guild, category, text, at)
     guild.log = guild.log or {}
-    table.insert(guild.log, { category = category, text = text, time = time() })
+    table.insert(guild.log, { category = category, text = text, time = at or time() })
     while #guild.log > MAX_LOG_ENTRIES do
         table.remove(guild.log, 1)
     end
