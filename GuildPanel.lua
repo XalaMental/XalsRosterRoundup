@@ -663,6 +663,8 @@ local function RenderMemberList()
         row.label:SetPoint("RIGHT", row.toggle, "LEFT", -4, 0)
 
         local namePart = NameColor(member.charName, member.isOfficer) .. member.charName .. "|r"
+        -- A red asterisk after the name: nobody has filled this member in yet.
+        if R:IsUntouched(member) then namePart = namePart .. " |cffb84d00*|r" end
         local label = member.nickname and member.nickname ~= ""
             and (namePart .. "  |cff999999(" .. member.nickname .. ")|r")
             or namePart
@@ -723,30 +725,106 @@ end
 
 local NOTE_FIELD_LOG_LABELS = { notes = "Note", officerNote = "Officer's Note" }
 
-local function SmallNoteBox(parent, member, guild, field, x, y, width)
-    local box = CreateFrame("EditBox", nil, parent, "InputBoxTemplate")
-    box:SetSize(width, 20)
-    box:SetPoint("TOPLEFT", parent, "TOPLEFT", x, -y)
-    box:SetAutoFocus(false)
-    box:SetText(member[field] or "")
-    local function Save(self)
-        local newText = self:GetText()
-        if newText ~= (member[field] or "") then
-            member[field] = newText
-            R:AddLogEntry(guild, "note", member.charName .. "'s " .. NOTE_FIELD_LOG_LABELS[field] .. " was updated.")
+-- The lighter fill with the thin border behind each group of fields in the
+-- profile (the same card the Recruitment pages use). They are textures on
+-- the detail pane itself, pooled by position so a redraw reuses them.
+local cardRegions = {}
+
+local function DrawCardRegion(index, y0, y1, w)
+    local outer = frame.detailContent
+    local c = cardRegions[index]
+    if not c then
+        c = {}
+        c.fill = outer:CreateTexture(nil, "BACKGROUND", nil, -1)
+        c.fill:SetColorTexture(Brand.CARD_BG[1], Brand.CARD_BG[2], Brand.CARD_BG[3], 1)
+        c.top = outer:CreateTexture(nil, "ARTWORK")
+        c.bottom = outer:CreateTexture(nil, "ARTWORK")
+        c.left = outer:CreateTexture(nil, "ARTWORK")
+        c.right = outer:CreateTexture(nil, "ARTWORK")
+        for _, t in ipairs({ c.top, c.bottom, c.left, c.right }) do
+            t:SetColorTexture(Brand.DIVIDER_COLOR[1], Brand.DIVIDER_COLOR[2], Brand.DIVIDER_COLOR[3], 1)
         end
+        function c.Hide()
+            c.fill:Hide(); c.top:Hide(); c.bottom:Hide(); c.left:Hide(); c.right:Hide()
+        end
+        cardRegions[index] = c
     end
-    box:SetScript("OnEnterPressed", function(self)
-        Save(self)
-        self:ClearFocus()
-    end)
-    box:SetScript("OnEditFocusLost", Save)
+    local thick = Brand.LINE_THICKNESS
+    local h = y1 - y0
+    c.fill:ClearAllPoints()
+    c.fill:SetPoint("TOPLEFT", outer, "TOPLEFT", 0, -y0)
+    c.fill:SetSize(w, h)
+    c.top:ClearAllPoints()
+    c.top:SetPoint("TOPLEFT", outer, "TOPLEFT", 0, -y0)
+    c.top:SetSize(w, thick)
+    c.bottom:ClearAllPoints()
+    c.bottom:SetPoint("TOPLEFT", outer, "TOPLEFT", 0, -(y1 - thick))
+    c.bottom:SetSize(w, thick)
+    c.left:ClearAllPoints()
+    c.left:SetPoint("TOPLEFT", outer, "TOPLEFT", 0, -y0)
+    c.left:SetSize(thick, h)
+    c.right:ClearAllPoints()
+    c.right:SetPoint("TOPLEFT", outer, "TOPLEFT", w - thick, -y0)
+    c.right:SetSize(thick, h)
+    c.fill:Show(); c.top:Show(); c.bottom:Show(); c.left:Show(); c.right:Show()
+    table.insert(detailWidgets, c)
+end
+
+-- A multi-line text box that wraps and puts the cursor where you click.
+-- onSave(text) runs when you click away or press Escape.
+local function WrapBox(parent, x, y, width, height, text, onSave)
+    local box = CreateFrame("Frame", nil, parent)
+    box:SetPoint("TOPLEFT", parent, "TOPLEFT", x, -y)
+    box:SetSize(width, height)
+    box:EnableMouse(true)
+    local bg = box:CreateTexture(nil, "BACKGROUND")
+    bg:SetAllPoints()
+    bg:SetColorTexture(Brand.BG[1], Brand.BG[2], Brand.BG[3], 1)
+    Brand.DrawBorder(box, 0)
+    local edit = CreateFrame("EditBox", nil, box)
+    edit:SetPoint("TOPLEFT", box, "TOPLEFT", 6, -5)
+    edit:SetPoint("BOTTOMRIGHT", box, "BOTTOMRIGHT", -6, 5)
+    edit:SetMultiLine(true)
+    edit:SetAutoFocus(false)
+    edit:SetMaxLetters(0)
+    edit:SetFont(Brand.BODY_FONT_PATH, 13, "")
+    edit:SetTextColor(0.85, 0.85, 0.9)
+    edit:SetJustifyH("LEFT")
+    edit:SetText(text or "")
+    box:SetScript("OnMouseDown", function() edit:SetFocus() end)
+    edit:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
+    edit:SetScript("OnEditFocusLost", function(self) onSave(self:GetText()) end)
     table.insert(detailWidgets, box)
     return box
 end
 
+local function SmallNoteBox(parent, member, guild, field, x, y, width)
+    return WrapBox(parent, x, y, width, 46, member[field] or "", function(newText)
+        if newText ~= (member[field] or "") then
+            member[field] = newText
+            R:AddLogEntry(guild, "note", member.charName .. "'s " .. NOTE_FIELD_LOG_LABELS[field] .. " was updated.")
+        end
+    end)
+end
+
 local function BuildProfileFields(parent, member, guild, width)
     local y = 0
+
+    -- Each group of fields sits on its own card. `parent` is inset 12px from
+    -- the pane's edges so the text clears the card border; width is the
+    -- inset width, and the card itself spans the full pane width.
+    local cardTop, cardCount = 0, 0
+    local function BeginCard()
+        y = y + 10
+        cardTop = y - 10
+    end
+    local function EndCard()
+        y = y + 8
+        cardCount = cardCount + 1
+        DrawCardRegion(cardCount, cardTop, y, width + 24)
+        y = y + 12
+    end
+    BeginCard()
 
     -- ── Header row: name/nickname/level/status on the left, Last Online/
     -- Date Joined/Promoted on the right, matching the reference layout
@@ -781,6 +859,17 @@ local function BuildProfileFields(parent, member, guild, width)
         Brand.BODY_FONT_PATH, 13, "", 0.7, 0.7, 0.7)
     statusLabel:SetPoint("LEFT", dot, "RIGHT", 5, 0)
     table.insert(detailWidgets, statusLabel)
+
+    -- Joined through Recruit Next: a small green line under the level.
+    local recruitedAt = XRR_DB.recruitment and XRR_DB.recruitment.recruited
+        and XRR_DB.recruitment.recruited[member.charName]
+    if recruitedAt then
+        local recruitedFs = Brand.FS(parent, "Joined through Roster Roundup recruiting", Brand.BODY_FONT_PATH, 12, "",
+            0.18, 0.72, 0.30)
+        recruitedFs:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, -(y + 18))
+        table.insert(detailWidgets, recruitedFs)
+        y = y + 18
+    end
 
     -- Right-aligned stat block.
     local function StatLine(label, value, yy)
@@ -834,22 +923,22 @@ local function BuildProfileFields(parent, member, guild, width)
     -- Date Joined/Promoted read through R:GetJoinDate/GetPromotedDate now
     -- (not member.firstSeenTime/guild.rankChanges directly) so a manual
     -- correction shows up the same way here and on the hover panel.
-    StatLine("Last Online", IsOnline(member.charName) and "Now" or LastOnlineText(member.charName), 0)
+    StatLine("Last Online", IsOnline(member.charName) and "Now" or LastOnlineText(member.charName), 10)
     local joinTime = R:GetJoinDate(guild, member.charName)
     local promotedTime = R:GetPromotedDate(guild, member.charName)
     local canEditDates = R:HasGMEditAccess(guild) and not R:IsOwnCharacter(member.charName)
     if canEditDates then
-        StatLineEditable("Date Joined", joinTime and R.FormatDate(joinTime) or "-", 20, "join")
-        StatLineEditable("Promoted", promotedTime and R.FormatDate(promotedTime) or "-", 40, "promoted")
+        StatLineEditable("Date Joined", joinTime and R.FormatDate(joinTime) or "-", 30, "join")
+        StatLineEditable("Promoted", promotedTime and R.FormatDate(promotedTime) or "-", 50, "promoted")
     else
-        StatLine("Date Joined", joinTime and R.FormatDate(joinTime) or "-", 20)
-        StatLine("Promoted", promotedTime and R.FormatDate(promotedTime) or "-", 40)
+        StatLine("Date Joined", joinTime and R.FormatDate(joinTime) or "-", 30)
+        StatLine("Promoted", promotedTime and R.FormatDate(promotedTime) or "-", 50)
     end
 
     y = y + 26
-    Brand.DrawDivider(parent, 0, y, width)
-    y = y + 16
+    EndCard()
 
+    BeginCard()
     FieldLabel(parent, "Nickname", 0, y)
     y = y + 18
     local nickBox = CreateFrame("EditBox", nil, parent, "InputBoxTemplate")
@@ -864,44 +953,36 @@ local function BuildProfileFields(parent, member, guild, width)
     end)
     nickBox:SetScript("OnEditFocusLost", function(self) member.nickname = self:GetText() end)
     table.insert(detailWidgets, nickBox)
-    y = y + 34
+    y = y + 30
+    EndCard()
 
     -- GM data access (notes, Officer's Note, Custom Notes): the real Guild
     -- Master, plus any character the GM has linked into their own
     -- Main/Alt group in this guild. Hidden on your own profile either way.
     if R:HasGMEditAccess(guild) and not R:IsOwnCharacter(member.charName) then
+        BeginCard()
         local halfWidth = (width - 16) / 2
 
         FieldLabel(parent, "Note", 0, y)
         FieldLabel(parent, "Officer's Note (Guild Master only)", halfWidth + 16, y)
         y = y + 18
-        SmallNoteBox(parent, member, guild, "notes", 4, y, halfWidth - 4)
-        SmallNoteBox(parent, member, guild, "officerNote", halfWidth + 16, y, halfWidth - 4)
-        y = y + 34
+        SmallNoteBox(parent, member, guild, "notes", 0, y, halfWidth)
+        SmallNoteBox(parent, member, guild, "officerNote", halfWidth + 16, y, halfWidth)
+        y = y + 54
 
         FieldLabel(parent, "Custom Notes", 0, y)
         y = y + 18
-        local customBox = CreateFrame("EditBox", nil, parent, "InputBoxTemplate")
-        customBox:SetSize(width - 8, 20)
-        customBox:SetPoint("TOPLEFT", parent, "TOPLEFT", 4, -y)
-        customBox:SetAutoFocus(false)
-        customBox:SetText(member.customNotes or "")
-        local function SaveCustomNotes(self)
-            local newText = self:GetText()
+        WrapBox(parent, 0, y, width, 54, member.customNotes or "", function(newText)
             if newText ~= (member.customNotes or "") then
                 member.customNotes = newText
                 R:AddLogEntry(guild, "note", member.charName .. "'s Custom Notes were updated.")
             end
-        end
-        customBox:SetScript("OnEnterPressed", function(self)
-            SaveCustomNotes(self)
-            self:ClearFocus()
         end)
-        customBox:SetScript("OnEditFocusLost", SaveCustomNotes)
-        table.insert(detailWidgets, customBox)
-        y = y + 34
+        y = y + 60
+        EndCard()
     end
 
+    BeginCard()
     FieldLabel(parent, "Professions", 0, y)
     -- Birthday moved here (2026-09-29, "move it to the right of
     -- professions") - the top-right stat corner (Last Online/Date Joined/
@@ -993,7 +1074,58 @@ local function BuildProfileFields(parent, member, guild, width)
 
         cx = cx + 24 + lbl:GetStringWidth() + 14
     end
-    y = y + 32
+    y = y + 30
+    EndCard()
+
+    -- Strikes: a dated list of problems, kept apart from notes. Officers and
+    -- the Guild Master see and edit it (not on their own profile).
+    if R:HasOfficerAccess(guild) and not R:IsOwnCharacter(member.charName) then
+        BeginCard()
+        FieldLabel(parent, "Strikes", 0, y)
+        y = y + 22
+        local strikes = member.strikes or {}
+        if #strikes == 0 then
+            local noneFs = Brand.FS(parent, "No strikes.", Brand.BODY_FONT_PATH, 13, "", 0.6, 0.6, 0.6)
+            noneFs:SetPoint("TOPLEFT", parent, "TOPLEFT", 4, -y)
+            table.insert(detailWidgets, noneFs)
+            y = y + 22
+        else
+            for i, strike in ipairs(strikes) do
+                local fs = Brand.FS(parent, date("%b %d, %Y", strike.at or 0) .. "   " .. (strike.text or ""),
+                    Brand.BODY_FONT_PATH, 13, "", 0.85, 0.85, 0.9)
+                fs:SetPoint("TOPLEFT", parent, "TOPLEFT", 4, -y)
+                fs:SetWidth(width - 80)
+                fs:SetJustifyH("LEFT")
+                fs:SetWordWrap(true)
+                table.insert(detailWidgets, fs)
+                local removeBtn = Brand.MakeTextLink(parent, "Remove", function()
+                    R:RemoveStrike(guild, member.charName, i)
+                    GP:Refresh()
+                end)
+                removeBtn:SetPoint("TOPRIGHT", parent, "TOPRIGHT", 0, -y + 3)
+                table.insert(detailWidgets, removeBtn)
+                y = y + math.max(18, fs:GetStringHeight()) + 6
+            end
+        end
+        local strikeBox = CreateFrame("EditBox", nil, parent, "InputBoxTemplate")
+        strikeBox:SetSize(width - 100, 20)
+        strikeBox:SetPoint("TOPLEFT", parent, "TOPLEFT", 4, -y)
+        strikeBox:SetAutoFocus(false)
+        strikeBox:SetMaxLetters(120)
+        table.insert(detailWidgets, strikeBox)
+        local addStrikeBtn = Brand.MakeTextLink(parent, "Add Strike", function()
+            R:AddStrike(guild, member.charName, strikeBox:GetText())
+            GP:Refresh()
+        end)
+        addStrikeBtn:SetPoint("LEFT", strikeBox, "RIGHT", 10, 0)
+        table.insert(detailWidgets, addStrikeBtn)
+        strikeBox:SetScript("OnEnterPressed", function(self)
+            R:AddStrike(guild, member.charName, self:GetText())
+            GP:Refresh()
+        end)
+        y = y + 32
+        EndCard()
+    end
 
     -- Player Alts - click one to open its own profile (2026-09-22 - "I
     -- can't access any of the alts because of how you have it set up").
@@ -1001,6 +1133,7 @@ local function BuildProfileFields(parent, member, guild, width)
     -- Alts" sidebar page - this is just the fastest way to actually get to
     -- an alt's own profile from wherever you already are.
     if member.isMain then
+        BeginCard()
         FieldLabel(parent, "Player Alts", 0, y)
         y = y + 18
         local alts = R:GetAlts(guild, member.charName)
@@ -1039,6 +1172,7 @@ local function BuildProfileFields(parent, member, guild, width)
             end
             y = y + 24
         end
+        EndCard()
     end
 
     -- Real guild-management actions - gated on the player's own ACTUAL
@@ -1050,6 +1184,7 @@ local function BuildProfileFields(parent, member, guild, width)
     local canPromoteOrDemote = (CanGuildPromote and CanGuildPromote()) or (CanGuildDemote and CanGuildDemote())
     local canRemove = CanGuildRemove and CanGuildRemove()
     if not R:IsOwnCharacter(member.charName) and (canPromoteOrDemote or canRemove) then
+        BeginCard()
         if canPromoteOrDemote then
             FieldLabel(parent, "Rank", 0, y)
             y = y + 18
@@ -1108,6 +1243,7 @@ local function BuildProfileFields(parent, member, guild, width)
             table.insert(detailWidgets, kickBtn)
             y = y + 32
         end
+        EndCard()
     end
 
     return y
@@ -1123,7 +1259,18 @@ local function RenderDetailPane()
     end
 
     local member = guild.members[state.selectedMain]
-    local contentHeight = BuildProfileFields(parent, member, guild, frame.detailWidth)
+    -- Everything is built into an inner frame inset 12px each side, so the
+    -- text clears the card borders drawn on the pane behind it.
+    local inner = frame.detailInner
+    if not inner then
+        inner = CreateFrame("Frame", nil, parent)
+        inner:SetPoint("TOPLEFT", parent, "TOPLEFT", 12, 0)
+        inner:SetPoint("TOPRIGHT", parent, "TOPRIGHT", -12, 0)
+        inner:SetHeight(1)
+        frame.detailInner = inner
+    end
+    inner:Show()
+    local contentHeight = BuildProfileFields(inner, member, guild, frame.detailWidth - 24)
     frame.UpdateDetailScrollRange(contentHeight)
 end
 
