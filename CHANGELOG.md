@@ -1,5 +1,38 @@
 # Xal's Roster Roundup - Changelog
 
+## 1.3.0 - October 24, 2026
+
+1.2.0 got Roster Roundup off the ground, but the more I used it, the more it felt like a collection of pages instead of one tool. So this update is a real rebuild. Recruitment now works the way the best guild-recruiting addons do: scan for unguilded players, whisper and invite them, post your ads, and keep a blacklist, all with one candidate in front of you at a time. Every page got the same bordered-card look as the rest of my addons, and the Guild Master and Officer pages picked up real tools for actually running a guild, including promotion rules, strikes, check-ins for members who've gone quiet, and syncing between officers who have the addon. I also cut the things that weren't earning their spot, like the per-character storage page. Thanks for being part of the Xal family.
+
+### 🆕 New
+- Recruitment is now three pages - Search, Ads, and Stats - each with its own Settings link. Scan by level, class, race, and zone, whisper and invite one candidate at a time, post ads on a queue, and keep a blacklist (including players who opt out).
+- Officer tools on the Guild Master and Officer pages: a roster overview card, members ready for promotion, strikes, inactive-member check-ins, and Message of the Day and guild info editing. Promotion rules are Guild Master only.
+- Officer sync - whenever two officers with the addon are online, shared data syncs on its own.
+- Right-click menus on players for inviting and recruiting.
+- A settings panel in the Esc menu, and every page now scrolls when it's taller than the window.
+- A returning-members filter in the Log, and an asterisk on the roster for members you haven't touched yet.
+- Pick any installed font on the Text page, with a size slider and Outline and Shadow options.
+
+### 🎨 Visual refresh
+- Every page now uses the same bordered cards as my other addons.
+- Mains / Alts is slimmer, with alts side by side and a click-the-name Unlink.
+- A new, bigger minimap icon.
+
+### 🔧 Fixed
+- The race and class filters now list only real, playable options.
+- Message of the Day now allows the full 255 characters.
+- The Add Alt list has search and scrolling, and a bigger font.
+- Pages no longer jump back to the top when they refresh while you're scrolled down, which made the bottom of the Officer page unreachable.
+- The What's New window now fits all of its text.
+
+### ⚙️ Under the hood
+- Removed the per-character storage page.
+- Bundled LibSharedMedia for the font list.
+
+---
+
+Dedicated to "Blinky" - who got handed the Guild Master role with no warning and has been carrying the whole guild ever since. This one's for her first, and hoping it helps plenty of other Guild Masters too.
+
 ## 1.2.0 - September 29, 2026
 
 This one turned into a big update. It started as a look at the visuals, but once I got in there I ended up doing a real overhaul - a handful of new features, and a bunch of fixes aimed at just making the whole thing more pleasant to actually use day to day. Hope you notice the difference. Thanks for being part of the Xal family.
