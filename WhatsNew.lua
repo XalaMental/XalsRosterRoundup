@@ -27,12 +27,18 @@ local Brand = XRR.BrandStyle
 -- ── Update this block every release to match CHANGELOG.md ──────
 -- (no "version" field here on purpose - see note above)
 W.WHATS_NEW = {
-    date = "September 12, 2026",
-    intro = "I hadn't touched this one's look since I first built it, and the rest of my addons have moved on to a new visual style since then - a darker indigo background and a deep orange accent instead of the old bronze-gold and swirl texture. Figured it was time to catch this one up so it actually looks like part of the same family again instead of standing out as the odd one.",
+    date = "October 24, 2026",
+    intro = "This update is a real rebuild. Recruitment now works the way the best guild-recruiting addons do, every page got the same bordered-card look as the rest of my addons, and the Guild Master and Officer pages picked up real tools for actually running a guild.",
     sections = {
-        { heading = "Visual refresh", items = {
-            "Switched the accent color from bronze-gold to a deep burnt-orange, and the background from a dark swirl texture to a flat dark indigo - matches the current look across all of my addons.",
-            "The background opacity slider on the Display page now matches the new orange accent too.",
+        { heading = "New", items = {
+            "Recruitment is now three pages - Search, Ads, and Stats - with one candidate shown at a time, a blacklist, and a queue for your recruitment ads.",
+            "Officer tools on the Guild Master and Officer pages: promotion rules, strikes, check-ins for members who've gone quiet, and a roster overview.",
+            "Officers with the addon now sync automatically whenever two of them are online.",
+            "Settings are also available from the Esc menu, and every page scrolls when it's taller than the window.",
+        } },
+        { heading = "Changed", items = {
+            "Pick any installed font on the Text page, with a size slider plus Outline and Shadow options.",
+            "A new, bigger minimap icon.",
         } },
     },
 }
@@ -170,12 +176,19 @@ local function BuildFrame(installedVersion)
         local top = f:GetTop()
         local lastBottom = prev and prev:GetBottom()
         if top and lastBottom then
-            f:SetHeight(math.min(math.max((top - lastBottom) + 64, 180), MAX_FH))
+            -- Never shorter than the text, only capped by the screen itself.
+            local maxH = math.max(MAX_FH, (UIParent:GetHeight() or 800) - 60)
+            f:SetHeight(math.min(math.max((top - lastBottom) + 64, 180), maxH))
         end
     end
+    -- The wrapped lines only report their real height a little after the
+    -- first draw, so the fit runs a few times as the layout settles instead
+    -- of trusting a single early measurement.
     f:SetScript("OnShow", function()
         if C_Timer and C_Timer.After then
-            C_Timer.After(0, FitHeight)
+            for _, delay in ipairs({ 0, 0.05, 0.2, 0.6 }) do
+                C_Timer.After(delay, FitHeight)
+            end
         else
             FitHeight()
         end
