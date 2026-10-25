@@ -19,7 +19,7 @@ local Brand = XRR.BrandStyle
 local Apps = XRR.Applications
 local R = XRR.Roster
 
-local ICON_PATH = "Interface\\AddOns\\XalsRosterRoundup\\Textures\\MinimapIcon_Book1.png"
+local ICON_PATH = "Interface\\AddOns\\XalsRosterRoundup\\Textures\\MinimapIcon_Book2.png"
 
 local function CurrentGuild()
     return R:GetCurrentGuild()
