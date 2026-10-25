@@ -10,8 +10,8 @@ local MB = XRR.MinimapButton
 -- Full custom-shaped icon, not masked into Blizzard's standard circular
 -- border - same technique Routes/Courier use (RemoveButtonBorder/
 -- RemoveButtonBackground/SetButtonIcon, LibDBIcon rev 56+).
-local MINIMAP_ICON = "Interface\\AddOns\\XalsRosterRoundup\\Textures\\MinimapIcon_Book1.png"
-local MINIMAP_ICON_SIZE = 38
+local MINIMAP_ICON = "Interface\\AddOns\\XalsRosterRoundup\\Textures\\MinimapIcon_Book2.png"
+local MINIMAP_ICON_SIZE = 34
 
 function MB:Register()
     local ldb = LibStub("LibDataBroker-1.1"):NewDataObject("XalsRosterRoundup", {
@@ -39,7 +39,11 @@ function MB:Register()
     local icon = LibStub("LibDBIcon-1.0")
     icon:Register("XalsRosterRoundup", ldb, XRR_DB.minimap)
 
-    if icon.SetButtonSize then
+    -- The size is set ONCE, at login, to the family default (34); after that
+    -- it belongs to whatever resizes it (a minimap-button collector, scale
+    -- tools). The picture fills the whole button, so it grows and shrinks
+    -- with the button instead of staying a fixed smaller size inside it.
+    if icon.SetButtonSize and icon:GetMinimapButton("XalsRosterRoundup") then
         icon:SetButtonSize("XalsRosterRoundup", MINIMAP_ICON_SIZE)
         icon:RemoveButtonBorder("XalsRosterRoundup")
         icon:RemoveButtonBackground("XalsRosterRoundup")
