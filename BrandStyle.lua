@@ -93,7 +93,8 @@ Brand.SAFE_MARGIN = 14
 -- changes the OUT-OF-THE-BOX default.
 Brand.BODY_FONT_PATH = "Interface\\AddOns\\XalsRosterRoundup\\Fonts\\Inter-Regular.ttf"
 Brand.BODY_SIZE_SCALE = 1.0 -- 0.85 small / 1.0 medium / 1.15 large
-Brand.BODY_OUTLINE = "" -- "", "OUTLINE", or "THICKOUTLINE" - no color option
+Brand.BODY_SHADOW = false -- a soft dark shadow behind body text (Text page checkbox)
+Brand.BODY_OUTLINE = "" -- "" or "OUTLINE" (Text page checkbox) - no color option
 -- exists for this at the WoW API level, the engine always renders it black
 -- (confirmed 2026-08-12, this is a real engine limitation, not a shortcut).
 Brand.BODY_TEXT_COLOR = { 0.85, 0.85, 0.85 }
@@ -160,7 +161,11 @@ function Brand.ApplySavedTheme()
         Brand.BODY_SIZE_SCALE = XRR_DB.bodySizeScale
     end
     if XRR_DB.bodyOutline then
-        Brand.BODY_OUTLINE = XRR_DB.bodyOutline
+        -- The old Thick Outline choice counts as plain Outline now.
+        Brand.BODY_OUTLINE = (XRR_DB.bodyOutline ~= "") and "OUTLINE" or ""
+    end
+    if XRR_DB.bodyShadow then
+        Brand.BODY_SHADOW = true
     end
 end
 
@@ -173,6 +178,10 @@ function Brand.BodyFS(parent, text, baseSize)
     fs:SetFont(Brand.BODY_FONT_PATH, baseSize * Brand.BODY_SIZE_SCALE, Brand.BODY_OUTLINE)
     fs:SetText(text or "")
     fs:SetTextColor(Brand.BODY_TEXT_COLOR[1], Brand.BODY_TEXT_COLOR[2], Brand.BODY_TEXT_COLOR[3], 1)
+    if Brand.BODY_SHADOW then
+        fs:SetShadowColor(0, 0, 0, 1)
+        fs:SetShadowOffset(1, -1)
+    end
     -- Real, confirmed bug (2026-09-22): a plain FontString's own default
     -- justification is CENTER, not LEFT. Every wrapped paragraph in this
     -- addon is meant to read left-aligned under its own heading, so that
@@ -386,6 +395,21 @@ end
 function Brand.DrawHeaderDivider(parent, x, y, width)
     return Brand.T(parent, x, y, width, Brand.LINE_THICKNESS,
         Brand.HEADER_COLOR[1], Brand.HEADER_COLOR[2], Brand.HEADER_COLOR[3], 1)
+end
+
+-- ── ApplyCardBackground()  ─ the fill behind a bordered card, a few shades
+-- lighter than the window's own background so a card reads as a raised box
+-- instead of just an outline (same helper and value Xal's Reins and
+-- Armoire use). Sits one sublevel below the default BACKGROUND layer so a
+-- card's hover highlight (drawn at the default sublevel) still lands on
+-- top of it.
+Brand.CARD_BG = { 0.082, 0.078, 0.149, 1 }
+
+function Brand.ApplyCardBackground(f)
+    local bg = f:CreateTexture(nil, "BACKGROUND", nil, -1)
+    bg:SetAllPoints()
+    bg:SetColorTexture(Brand.CARD_BG[1], Brand.CARD_BG[2], Brand.CARD_BG[3], Brand.CARD_BG[4])
+    return bg
 end
 
 -- ── ApplyBackground()  ─ the standard opaque near-black frame background.
@@ -755,12 +779,20 @@ end
 -- already have one, not the other way around). Ported from
 -- XalsQuestCompass's BrandStyle.lua, which already uses this same widget
 -- for its Font/Outline pickers, same as Reins and Compendium.
+-- Pass { searchable = true } as a third argument for a long list: a search box
+-- at the top narrows the names as you type, and the list is capped at 8 rows
+-- tall and scrolls (mouse wheel + a thin scrollbar) instead of running down
+-- the screen. Off by default, so every other dropdown is unchanged.
 -- Usage: dd = Brand.MakeDropdown(parent, width); dd:SetOptions({{key=,
 -- name=}, ...}); dd:SetValue(key); dd.OnSelect = function(key) ... end.
 -- The option list is its own top-level frame (not a child of the dropdown
 -- button) so it can draw above a scrollable page's own clipping, same
 -- reason Blizzard's native dropdowns also float above everything.
-function Brand.MakeDropdown(parent, width)
+function Brand.MakeDropdown(parent, width, opts)
+    local searchable = opts and opts.searchable
+    -- The list can be wider than its button (a small "+ Alt" button with a
+    -- list wide enough for names).
+    local listWidth = (opts and opts.listWidth) or width
     local height = 26
     local dd = CreateFrame("Button", nil, parent, "BackdropTemplate")
     PixelUtil.SetSize(dd, width, height)
@@ -810,28 +842,137 @@ function Brand.MakeDropdown(parent, width)
     dd.options = {}
     dd.rows = {}
 
-    local ROW_HEIGHT = 22
+    -- A searchable list is for long lists of names, so it uses bigger text
+    -- (14px) and taller rows than the small default.
+    local ROW_HEIGHT = searchable and 28 or 22
+    local LIST_FONT_SIZE = 14
+    local SEARCH_ROWS = 8
+    local SEARCH_TOP = 38 -- room for the search box above the rows
+    local rowParent = list
+    local searchBox, scroll, thumb, noMatch
+    local filterText = ""
+
+    local function UpdateThumb()
+        if not thumb then return end
+        local total = (scroll:GetScrollChild():GetHeight()) or 0
+        local view = scroll:GetHeight() or 0
+        if total <= view or view <= 0 then
+            thumb:Hide()
+            return
+        end
+        local range = total - view
+        local h = math.max(14, view * view / total)
+        thumb:SetHeight(h)
+        thumb:ClearAllPoints()
+        thumb:SetPoint("TOPRIGHT", scroll, "TOPRIGHT", 6, -(scroll:GetVerticalScroll() / range) * (view - h))
+        thumb:Show()
+    end
+
+    if searchable then
+        searchBox = CreateFrame("EditBox", nil, list)
+        searchBox:SetPoint("TOPLEFT", list, "TOPLEFT", 8, -7)
+        searchBox:SetPoint("TOPRIGHT", list, "TOPRIGHT", -8, -7)
+        searchBox:SetHeight(24)
+        searchBox:SetAutoFocus(false)
+        searchBox:SetFont(Brand.BODY_FONT_PATH, LIST_FONT_SIZE, "")
+        searchBox:SetTextColor(0.9, 0.9, 0.9)
+        local hint = searchBox:CreateFontString(nil, "OVERLAY")
+        hint:SetFont(Brand.BODY_FONT_PATH, LIST_FONT_SIZE, "")
+        hint:SetPoint("LEFT", 0, 0)
+        hint:SetText("Search...")
+        hint:SetTextColor(0.4, 0.4, 0.5)
+        searchBox.hint = hint
+
+        local divider = list:CreateTexture(nil, "ARTWORK")
+        divider:SetColorTexture(Brand.DIVIDER_COLOR[1], Brand.DIVIDER_COLOR[2], Brand.DIVIDER_COLOR[3], 1)
+        divider:SetPoint("TOPLEFT", list, "TOPLEFT", 2, -(SEARCH_TOP - 3))
+        divider:SetPoint("TOPRIGHT", list, "TOPRIGHT", -2, -(SEARCH_TOP - 3))
+        divider:SetHeight(2)
+
+        scroll = CreateFrame("ScrollFrame", nil, list)
+        scroll:SetPoint("TOPLEFT", list, "TOPLEFT", 2, -SEARCH_TOP)
+        scroll:SetPoint("BOTTOMRIGHT", list, "BOTTOMRIGHT", -8, 2)
+        local child = CreateFrame("Frame", nil, scroll)
+        child:SetSize(listWidth - 12, 1)
+        scroll:SetScrollChild(child)
+        rowParent = child
+
+        thumb = scroll:CreateTexture(nil, "OVERLAY")
+        thumb:SetColorTexture(Brand.ACCENT[1], Brand.ACCENT[2], Brand.ACCENT[3], 1)
+        thumb:SetWidth(4)
+
+        noMatch = list:CreateFontString(nil, "OVERLAY")
+        noMatch:SetFont(Brand.BODY_FONT_PATH, LIST_FONT_SIZE, "")
+        noMatch:SetPoint("TOPLEFT", list, "TOPLEFT", 10, -(SEARCH_TOP + 6))
+        noMatch:SetText("No matches")
+        noMatch:SetTextColor(0.5, 0.5, 0.6)
+        noMatch:Hide()
+
+        scroll:EnableMouseWheel(true)
+        scroll:SetScript("OnMouseWheel", function(self, delta)
+            local maxScroll = math.max(0, child:GetHeight() - self:GetHeight())
+            self:SetVerticalScroll(math.max(0, math.min(maxScroll, self:GetVerticalScroll() - delta * ROW_HEIGHT * 3)))
+            UpdateThumb()
+        end)
+    end
+
+    -- Lays out the rows. A searchable list shows only the names matching
+    -- the search text and sizes itself to them (up to 8 rows tall).
+    local function LayoutRows()
+        if not searchable then return end
+        local shown = 0
+        local needle = filterText:lower()
+        for i, opt in ipairs(dd.options) do
+            local row = dd.rows[i]
+            if row then
+                if needle == "" or opt.name:lower():find(needle, 1, true) then
+                    row:ClearAllPoints()
+                    row:SetPoint("TOPLEFT", rowParent, "TOPLEFT", 0, -shown * ROW_HEIGHT)
+                    row:SetPoint("RIGHT", rowParent, "RIGHT", 0, 0)
+                    row:Show()
+                    shown = shown + 1
+                else
+                    row:Hide()
+                end
+            end
+        end
+        rowParent:SetHeight(math.max(1, shown * ROW_HEIGHT))
+        scroll:SetVerticalScroll(0)
+        noMatch:SetShown(shown == 0)
+        list:SetHeight(SEARCH_TOP + math.max(1, math.min(shown, SEARCH_ROWS)) * ROW_HEIGHT + 4)
+        dd.shownCount = shown
+        UpdateThumb()
+    end
+
     function dd:SetOptions(options)
         self.options = options
         for _, row in ipairs(self.rows) do row:Hide() end
         for i, opt in ipairs(options) do
             local row = self.rows[i]
             if not row then
-                row = CreateFrame("Button", nil, list)
+                row = CreateFrame("Button", nil, rowParent)
                 row:SetHeight(ROW_HEIGHT)
                 local hl = row:CreateTexture(nil, "HIGHLIGHT")
                 hl:SetAllPoints()
                 hl:SetColorTexture(Brand.ACCENT[1], Brand.ACCENT[2], Brand.ACCENT[3], 0.25)
                 local text = row:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+                if searchable then
+                    text:SetFont(Brand.BODY_FONT_PATH, LIST_FONT_SIZE, "")
+                    -- An option can carry its own fontPath so its name is
+                    -- drawn in that font (the Text page's font list).
+                    if opt.fontPath then text:SetFont(opt.fontPath, LIST_FONT_SIZE, "") end
+                end
                 text:SetPoint("LEFT", 8, 0)
                 text:SetPoint("RIGHT", -8, 0)
                 text:SetJustifyH("LEFT")
                 row.text = text
                 self.rows[i] = row
             end
-            row:ClearAllPoints()
-            row:SetPoint("TOPLEFT", 2, -2 - (i - 1) * ROW_HEIGHT)
-            row:SetPoint("RIGHT", -2, 0)
+            if not searchable then
+                row:ClearAllPoints()
+                row:SetPoint("TOPLEFT", 2, -2 - (i - 1) * ROW_HEIGHT)
+                row:SetPoint("RIGHT", -2, 0)
+            end
             row.text:SetText(opt.name)
             row:SetScript("OnClick", function()
                 dd:SetValue(opt.key)
@@ -840,7 +981,32 @@ function Brand.MakeDropdown(parent, width)
             end)
             row:Show()
         end
-        list:SetHeight(#options * ROW_HEIGHT + 4)
+        if searchable then
+            LayoutRows()
+        else
+            list:SetHeight(#options * ROW_HEIGHT + 4)
+        end
+    end
+
+    if searchable then
+        searchBox:SetScript("OnTextChanged", function(self)
+            filterText = self:GetText()
+            self.hint:SetShown(filterText == "")
+            LayoutRows()
+        end)
+        searchBox:SetScript("OnEscapePressed", function() CloseList() end)
+        -- Enter picks the first name left in the list.
+        searchBox:SetScript("OnEnterPressed", function()
+            local needle = filterText:lower()
+            for _, opt in ipairs(dd.options) do
+                if needle == "" or opt.name:lower():find(needle, 1, true) then
+                    dd:SetValue(opt.key)
+                    CloseList()
+                    if dd.OnSelect then dd.OnSelect(opt.key) end
+                    return
+                end
+            end
+        end)
     end
 
     function dd:SetValue(key)
@@ -864,9 +1030,15 @@ function Brand.MakeDropdown(parent, width)
         end
         list:ClearAllPoints()
         list:SetPoint("TOPLEFT", self, "BOTTOMLEFT", 0, -2)
-        list:SetWidth(width)
+        list:SetWidth(listWidth)
+        if searchable then
+            searchBox:SetText("")
+            filterText = ""
+            LayoutRows()
+        end
         list:Show()
         catcher:Show()
+        if searchable then searchBox:SetFocus() end
     end)
 
     return dd
