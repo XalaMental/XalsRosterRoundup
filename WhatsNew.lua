@@ -27,18 +27,22 @@ local Brand = XRR.BrandStyle
 -- ── Update this block every release to match CHANGELOG.md ──────
 -- (no "version" field here on purpose - see note above)
 W.WHATS_NEW = {
-    date = "October 24, 2026",
-    intro = "This update is a real rebuild. Recruitment now works the way the best guild-recruiting addons do, every page got the same bordered-card look as the rest of my addons, and the Guild Master and Officer pages picked up real tools for actually running a guild.",
+    date = "November 15, 2026",
+    intro = "I started playing on WoW Forever and Roster Roundup had a rough time there - my roster filled up with people from guilds I'd left, and guild invites from Recruit Next got blocked. This update starts making it work properly there, and adds a few things I wanted along the way.",
     sections = {
         { heading = "New", items = {
-            "Recruitment is now three pages - Search, Ads, and Stats - with one candidate shown at a time, a blacklist, and a queue for your recruitment ads.",
-            "Officer tools on the Guild Master and Officer pages: promotion rules, strikes, check-ins for members who've gone quiet, and a roster overview.",
-            "Officers with the addon now sync automatically whenever two of them are online.",
-            "Settings are also available from the Esc menu, and every page scrolls when it's taller than the window.",
+            "A Recruit Replies box that collects the whispers you sent and every answer. Right-click a name for the game's own menu, including Invite to Guild.",
+            "A Backup page: a safety copy of your guild data about once a day, one-click restore, and Export / Import.",
+            "A Log summary with joins and leaves over 7 and 30 days, who left recently, and an export for spreadsheets.",
+            "Six skins to pick from on the Display page.",
+            "Unguilded players you run into can become recruit candidates, and your guild's class mix shows on the class filter.",
         } },
         { heading = "Changed", items = {
-            "Pick any installed font on the Text page, with a size slider plus Outline and Shadow options.",
-            "A new, bigger minimap icon.",
+            "On Forever, Recruit Next whispers and you invite from the right-click menu, since addons can't send guild invites there.",
+        } },
+        { heading = "Fixed", items = {
+            "A scrambled roster read no longer fills your roster and log with other guilds' members.",
+            "This window and the Log filters no longer run past their edges.",
         } },
     },
 }
@@ -132,22 +136,43 @@ local function BuildFrame(installedVersion)
     -- game's own layout engine (which knows the true wrapped height once it
     -- actually draws the string) positions the next line - no manual height
     -- math to get wrong.
+    -- Every wrapped line gets an EXPLICIT height up front, estimated from the
+    -- text's unwrapped width (a single-line measurement, which is reliable
+    -- right away) so the window is sized correctly on the very first frame.
+    -- FitHeight below only ever grows a line if the real wrapped height turns
+    -- out taller than the estimate.
+    local wrapped = {}
     local function WrappedFS(text, width, size, r, g, b)
         local fs = Brand.FS(f, "", Brand.BODY_FONT_PATH, size, "", r, g, b)
         fs:SetWidth(width)
         fs:SetJustifyH("LEFT")
         fs:SetWordWrap(true)
         fs:SetText(text)
+
+        local m = Brand.FS(f, "", Brand.BODY_FONT_PATH, size, "", r, g, b)
+        m:SetText(text)
+        local textW = m:GetStringWidth() or 0
+        m:SetText("Ag")
+        local lineH = m:GetStringHeight() or (size + 3)
+        m:Hide()
+        if lineH < size then lineH = size + 3 end
+        -- 0.92: word-wrap wastes some of each line, so leave room for it.
+        local lines = math.max(1, math.ceil(textW / (width * 0.92)))
+        fs:SetHeight(lines * lineH)
+        wrapped[#wrapped + 1] = fs
         return fs
     end
 
     local prev, prevIndent = nil, 30
+    local usedY = 92
     local function place(elem, indent, gap)
         if prev then
             elem:SetPoint("TOPLEFT", prev, "BOTTOMLEFT", indent - prevIndent, -gap)
+            usedY = usedY + gap
         else
             elem:SetPoint("TOPLEFT", f, "TOPLEFT", indent, -92)
         end
+        usedY = usedY + (elem:GetHeight() or 14)
         prev, prevIndent = elem, indent
     end
 
@@ -172,12 +197,20 @@ local function BuildFrame(installedVersion)
     -- draw - measure one frame after Show() (via OnShow + C_Timer.After(0))
     -- and size the frame from the last element's TRUE bottom, instead of any
     -- pre-computed height guess.
+    local maxH = math.max(MAX_FH, (UIParent:GetHeight() or 800) - 60)
+    f:SetHeight(math.min(math.max(usedY + 64, 180), maxH))
+
     local function FitHeight()
+        for _, fs in ipairs(wrapped) do
+            local real = fs:GetStringHeight()
+            if real and real > (fs:GetHeight() or 0) + 1 then
+                fs:SetHeight(real)
+            end
+        end
         local top = f:GetTop()
         local lastBottom = prev and prev:GetBottom()
         if top and lastBottom then
             -- Never shorter than the text, only capped by the screen itself.
-            local maxH = math.max(MAX_FH, (UIParent:GetHeight() or 800) - 60)
             f:SetHeight(math.min(math.max((top - lastBottom) + 64, 180), maxH))
         end
     end
