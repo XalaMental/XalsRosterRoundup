@@ -122,7 +122,7 @@ local function CreatePanel()
     end)
     frame.closeBtn:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -8, -4)
 
-    frame.lastOnline = Brand.FS(frame, "", Brand.BODY_FONT_PATH, 12, "", 0.7, 0.7, 0.7)
+    frame.lastOnline = Brand.FS(frame, "", Brand.BODY_FONT_PATH, 12, "", Brand.BODY_TEXT_COLOR[1], Brand.BODY_TEXT_COLOR[2], Brand.BODY_TEXT_COLOR[3])
     frame.lastOnline:SetPoint("TOPLEFT", frame, "TOPLEFT", 16, -22)
 
     -- Starts a little lower than before (-14 -> -22) so it doesn't crowd
@@ -144,7 +144,7 @@ local function CreatePanel()
     frame.quote:SetPoint("TOP", frame.name, "BOTTOM", 0, -4)
     frame.quote:SetJustifyH("CENTER")
 
-    frame.subline = Brand.FS(frame, "", Brand.BODY_FONT_PATH, 13, "", 0.8, 0.8, 0.8)
+    frame.subline = Brand.FS(frame, "", Brand.BODY_FONT_PATH, 13, "", Brand.BODY_TEXT_COLOR[1], Brand.BODY_TEXT_COLOR[2], Brand.BODY_TEXT_COLOR[3])
     frame.subline:SetPoint("TOP", frame.quote, "BOTTOM", 0, -6)
     frame.subline:SetJustifyH("CENTER")
 
@@ -153,7 +153,7 @@ local function CreatePanel()
     local colTop = -160
 
     frame.noteLabel = Brand.BodyFS(frame, "Note", 12)
-    frame.noteLabel:SetTextColor(0.55, 0.55, 0.55)
+    frame.noteLabel:SetTextColor(Brand.DESC_COLOR[1], Brand.DESC_COLOR[2], Brand.DESC_COLOR[3])
     frame.noteLabel:SetPoint("TOPLEFT", frame, "TOPLEFT", leftX, colTop)
 
     -- Real editable EditBoxes, not plain text - confirmed 2026-09-21:
@@ -211,21 +211,21 @@ local function CreatePanel()
     frame.noteBox:SetPoint("TOPLEFT", frame.noteLabel, "BOTTOMLEFT", 0, -5)
 
     frame.customLabel = Brand.BodyFS(frame, "Custom Notes", 12)
-    frame.customLabel:SetTextColor(0.55, 0.55, 0.55)
+    frame.customLabel:SetTextColor(Brand.DESC_COLOR[1], Brand.DESC_COLOR[2], Brand.DESC_COLOR[3])
     frame.customLabel:SetPoint("TOPLEFT", frame.noteBox, "BOTTOMLEFT", 0, -10)
 
     frame.customBox = MakeEditableBox(frame, COL_W, CUSTOM_BOX_H, "customNotes")
     frame.customBox:SetPoint("TOPLEFT", frame.customLabel, "BOTTOMLEFT", 0, -5)
 
     frame.officerLabel = Brand.BodyFS(frame, "Officer's Note", 12)
-    frame.officerLabel:SetTextColor(0.55, 0.55, 0.55)
+    frame.officerLabel:SetTextColor(Brand.DESC_COLOR[1], Brand.DESC_COLOR[2], Brand.DESC_COLOR[3])
     frame.officerLabel:SetPoint("TOPLEFT", frame, "TOPLEFT", rightX, colTop)
 
     frame.officerBox = MakeEditableBox(frame, COL_W, NOTE_BOX_H, "officerNote")
     frame.officerBox:SetPoint("TOPLEFT", frame.officerLabel, "BOTTOMLEFT", 0, -5)
 
     frame.altsLabel = Brand.BodyFS(frame, "Player Alts", 12)
-    frame.altsLabel:SetTextColor(0.55, 0.55, 0.55)
+    frame.altsLabel:SetTextColor(Brand.DESC_COLOR[1], Brand.DESC_COLOR[2], Brand.DESC_COLOR[3])
     frame.altsLabel:SetPoint("TOPLEFT", frame.officerBox, "BOTTOMLEFT", 0, -10)
 
     frame.altsBox = CreateFrame("Frame", nil, frame, "BackdropTemplate")
@@ -337,9 +337,9 @@ function HP:ShowFor(charName, member, guild, anchorFrame, liveInfo)
     -- editable, matching GRM's own real, accepted split - not a bug to
     -- keep chasing on the other two.
     frame.noteBox.editBox:EnableMouse(false)
-    frame.noteBox.editBox:SetTextColor(0.55, 0.55, 0.55)
+    frame.noteBox.editBox:SetTextColor(Brand.DESC_COLOR[1], Brand.DESC_COLOR[2], Brand.DESC_COLOR[3])
     frame.officerBox.editBox:EnableMouse(false)
-    frame.officerBox.editBox:SetTextColor(0.55, 0.55, 0.55)
+    frame.officerBox.editBox:SetTextColor(Brand.DESC_COLOR[1], Brand.DESC_COLOR[2], Brand.DESC_COLOR[3])
     frame.customBox.editBox:EnableMouse(frame.editable)
     frame.customBox.editBox:SetTextColor(frame.editable and 0.9 or 0.55, frame.editable and 0.9 or 0.55, frame.editable and 0.9 or 0.55)
     frame.noteBox.editBox:SetText(member and member.notes or "")
@@ -363,14 +363,14 @@ function HP:ShowFor(charName, member, guild, anchorFrame, liveInfo)
                 fs:SetFont(Brand.BODY_FONT_PATH, 13, "")
                 fs:SetPoint("LEFT", altBtn, "LEFT", 0, 0)
                 altBtn.fs = fs
-                altBtn:SetScript("OnEnter", function(btn) btn.fs:SetTextColor(1, 1, 1, 1) end)
-                altBtn:SetScript("OnLeave", function(btn) btn.fs:SetTextColor(0.8, 0.8, 0.8, 1) end)
+                altBtn:SetScript("OnEnter", function(btn) btn.fs:SetTextColor(Brand.HOVER_COLOR[1], Brand.HOVER_COLOR[2], Brand.HOVER_COLOR[3]) end)
+                altBtn:SetScript("OnLeave", function(btn) btn.fs:SetTextColor(Brand.BODY_TEXT_COLOR[1], Brand.BODY_TEXT_COLOR[2], Brand.BODY_TEXT_COLOR[3]) end)
                 frame.altTexts[i] = altBtn
             end
             altBtn:ClearAllPoints()
             altBtn:SetPoint("TOPLEFT", frame.altsBox, "TOPLEFT", 8, y)
             altBtn.fs:SetText(alt.charName)
-            altBtn.fs:SetTextColor(0.8, 0.8, 0.8, 1)
+            altBtn.fs:SetTextColor(Brand.BODY_TEXT_COLOR[1], Brand.BODY_TEXT_COLOR[2], Brand.BODY_TEXT_COLOR[3])
             altBtn:SetWidth(altBtn.fs:GetStringWidth())
             local altCharName = alt.charName
             altBtn:SetScript("OnClick", function()
