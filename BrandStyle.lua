@@ -18,6 +18,7 @@
 XRR = XRR or {}
 XRR.BrandStyle = {}
 local Brand = XRR.BrandStyle
+local _, addonTable = ...
 
 -- ── Colours (r, g, b) ─────────────────────────────────────────
 -- Deep burnt-orange + dark indigo, the current family default (confirmed
@@ -98,6 +99,76 @@ Brand.BODY_OUTLINE = "" -- "" or "OUTLINE" (Text page checkbox) - no color optio
 -- exists for this at the WoW API level, the engine always renders it black
 -- (confirmed 2026-08-12, this is a real engine limitation, not a shortcut).
 Brand.BODY_TEXT_COLOR = { 0.85, 0.85, 0.85 }
+
+-- ── Skins ──────────────────────────────────────────────────────────────
+-- A skin is a palette (XalsSkins.lua, the family's shared file). The tables
+-- below are filled IN PLACE by Brand.ApplySkin, so everything that reads one
+-- when it is built picks the skin up. The values here are only the load-time
+-- starting point; the saved choice is applied at login (Core.lua).
+Brand.WINDOW_BG    = Brand.BG                    -- the skin file's name for the window color; same table
+Brand.DESC_COLOR   = { 0.62, 0.62, 0.62 }        -- dim description text
+Brand.HOVER_COLOR  = { 1, 1, 1 }                 -- what a link turns under the mouse; also "bright" text
+Brand.TAB_COLOR    = { 0.588, 0.588, 0.824 }     -- the skin file fills these; the sidebar here
+Brand.TAB_SELECTED_COLOR = { 0.8, 0.188, 0.212 } -- is built from the accent instead
+Brand.IS_LIGHT     = false                       -- true on a light skin
+Brand.INPUT_BG       = { 0.1, 0.1, 0.1, 0.6 }    -- checkbox / dropdown / button fill
+Brand.INPUT_BG_HOVER = { 0.18, 0.18, 0.18, 0.75 }
+Brand.INPUT_BG_SELECTED = { 0.22, 0.22, 0.22, 0.85 }
+Brand.skinKey = "current"
+
+-- XalsSkins.lua loads after this file, so other files fetch it through here.
+function Brand.GetSkins()
+    return addonTable and addonTable.Skins
+end
+
+function Brand.ApplySkin(key)
+    local Skins = addonTable and addonTable.Skins
+    if Skins and Skins.Apply then
+        key = Skins.Apply(Brand, key)
+    else
+        key = "current"
+    end
+    local light = Brand.IS_LIGHT
+    local p = Skins and Skins.Get(key)
+
+    -- This addon's own names for the accent and body text.
+    local H, B = Brand.HEADER_COLOR, p and p.body
+    Brand.ACCENT[1], Brand.ACCENT[2], Brand.ACCENT[3] = H[1], H[2], H[3]
+    Brand.DEFAULT_ACCENT[1], Brand.DEFAULT_ACCENT[2], Brand.DEFAULT_ACCENT[3] = H[1], H[2], H[3]
+    Brand.DEFAULT_BG[1], Brand.DEFAULT_BG[2], Brand.DEFAULT_BG[3] = Brand.BG[1], Brand.BG[2], Brand.BG[3]
+    if B then
+        local r, g, b = tonumber(B:sub(2, 3), 16) / 255, tonumber(B:sub(4, 5), 16) / 255, tonumber(B:sub(6, 7), 16) / 255
+        Brand.GOLD[1], Brand.GOLD[2], Brand.GOLD[3] = r, g, b
+        Brand.BODY_TEXT_COLOR[1], Brand.BODY_TEXT_COLOR[2], Brand.BODY_TEXT_COLOR[3] = r, g, b
+    end
+
+    -- Raised cards: the skin's panel color when it differs from the window,
+    -- otherwise the window lightened a little.
+    local W, card = Brand.BG, Brand.CARD_BG
+    local P = p and p.panel
+    local pr, pg, pb
+    if P then
+        pr, pg, pb = tonumber(P:sub(2, 3), 16) / 255, tonumber(P:sub(4, 5), 16) / 255, tonumber(P:sub(6, 7), 16) / 255
+    end
+    if pr and math.abs(W[1] - pr) + math.abs(W[2] - pg) + math.abs(W[3] - pb) > 0.01 then
+        card[1], card[2], card[3] = pr, pg, pb
+    else
+        card[1], card[2], card[3] = W[1] + (1 - W[1]) * 0.07, W[2] + (1 - W[2]) * 0.07, W[3] + (1 - W[3]) * 0.07
+    end
+    card[4] = 1
+
+    local a, h, s = Brand.INPUT_BG, Brand.INPUT_BG_HOVER, Brand.INPUT_BG_SELECTED
+    if light then
+        a[1], a[2], a[3], a[4] = 0.78, 0.72, 0.58, 0.7
+        h[1], h[2], h[3], h[4] = 0.70, 0.63, 0.48, 0.85
+        s[1], s[2], s[3], s[4] = 0.64, 0.57, 0.42, 0.9
+    else
+        a[1], a[2], a[3], a[4] = 0.1, 0.1, 0.1, 0.6
+        h[1], h[2], h[3], h[4] = 0.18, 0.18, 0.18, 0.75
+        s[1], s[2], s[3], s[4] = 0.22, 0.22, 0.22, 0.85
+    end
+    return key
+end
 
 -- The OLD bronze-gold/near-black defaults, before the 2026-09-02 indigo/
 -- orange refresh - the Display page's color pickers auto-save whatever
@@ -247,13 +318,15 @@ end
 -- branded frame instead of a mismatched grey outline. Selected vs. normal
 -- state is carried by fill brightness AND label color (see SetSelected below).
 -- Call btn:SetSelected(true/false) for a brighter fill + white label (tabs).
-local BTN_BORDER = { Brand.ACCENT[1], Brand.ACCENT[2], Brand.ACCENT[3], 1 }
-local BTN_BORDER_SELECTED = { Brand.ACCENT[1], Brand.ACCENT[2], Brand.ACCENT[3], 1 }
+-- Read live from Brand.ACCENT (not copied at load), so a skin applied at
+-- login reaches every button.
+local BTN_BORDER = setmetatable({ nil, nil, nil, 1 }, { __index = function(_, i) return Brand.ACCENT[i] end })
+local BTN_BORDER_SELECTED = BTN_BORDER
 -- Was its own separate hardcoded amber-orange, distinct from Brand.ACCENT -
 -- retired 2026-09-25 ("everything the same dark red, no exceptions"), same
 -- fix already applied on Routes. Now just Brand.ACCENT, same as the border
 -- above - one accent color, not two competing warm tones.
-local BTN_LABEL_UNSELECTED = { Brand.ACCENT[1], Brand.ACCENT[2], Brand.ACCENT[3] }
+local BTN_LABEL_UNSELECTED = BTN_BORDER
 
 function Brand.MakeButton(parent, text, w, h, onClick)
     local btn = CreateFrame("Button", nil, parent, "BackdropTemplate")
@@ -267,7 +340,7 @@ function Brand.MakeButton(parent, text, w, h, onClick)
     btn:SetBackdrop({
         bgFile = "Interface\\Buttons\\WHITE8x8",
     })
-    btn:SetBackdropColor(0.1, 0.1, 0.1, 0.6)
+    btn:SetBackdropColor(unpack(Brand.INPUT_BG))
 
     local thick = Brand.LINE_THICKNESS
     local borderTop = btn:CreateTexture(nil, "ARTWORK")
@@ -309,21 +382,21 @@ function Brand.MakeButton(parent, text, w, h, onClick)
     btn.label = label
 
     btn:SetScript("OnEnter", function(self)
-        if not self.selected then self:SetBackdropColor(0.18, 0.18, 0.18, 0.75) end
+        if not self.selected then self:SetBackdropColor(unpack(Brand.INPUT_BG_HOVER)) end
     end)
     btn:SetScript("OnLeave", function(self)
-        if not self.selected then self:SetBackdropColor(0.1, 0.1, 0.1, 0.6) end
+        if not self.selected then self:SetBackdropColor(unpack(Brand.INPUT_BG)) end
     end)
     if onClick then btn:SetScript("OnClick", onClick) end
 
     function btn:SetSelected(selected)
         self.selected = selected
         if selected then
-            self:SetBackdropColor(0.22, 0.22, 0.22, 0.85)
+            self:SetBackdropColor(unpack(Brand.INPUT_BG_SELECTED))
             SetBorderColor(BTN_BORDER_SELECTED[1], BTN_BORDER_SELECTED[2], BTN_BORDER_SELECTED[3], BTN_BORDER_SELECTED[4])
-            label:SetTextColor(1, 1, 1, 1)
+            label:SetTextColor(Brand.HOVER_COLOR[1], Brand.HOVER_COLOR[2], Brand.HOVER_COLOR[3], 1)
         else
-            self:SetBackdropColor(0.1, 0.1, 0.1, 0.6)
+            self:SetBackdropColor(unpack(Brand.INPUT_BG))
             SetBorderColor(BTN_BORDER[1], BTN_BORDER[2], BTN_BORDER[3], BTN_BORDER[4])
             label:SetTextColor(BTN_LABEL_UNSELECTED[1], BTN_LABEL_UNSELECTED[2], BTN_LABEL_UNSELECTED[3], 1)
         end
@@ -669,7 +742,7 @@ function Brand.ShowCopyBox(caption, url)
         box:SetScript("OnEscapePressed", function() f:Hide() end)
         f.box = box
 
-        local hint = Brand.FS(f, "Ctrl+C to copy", Brand.BODY_FONT_PATH, 11, nil, 0.6, 0.6, 0.6)
+        local hint = Brand.FS(f, "Ctrl+C to copy", Brand.BODY_FONT_PATH, 11, nil, Brand.DESC_COLOR[1], Brand.DESC_COLOR[2], Brand.DESC_COLOR[3])
         hint:SetPoint("TOPLEFT", box, "BOTTOMLEFT", 2, -6)
 
         local close = Brand.MakeCloseButton(f, function() f:Hide() end)
@@ -711,7 +784,7 @@ function Brand.MakeCheckbox(parent, size)
 
     local bg = cb:CreateTexture(nil, "BACKGROUND")
     bg:SetAllPoints()
-    bg:SetColorTexture(0.1, 0.1, 0.1, 0.6)
+    bg:SetColorTexture(unpack(Brand.INPUT_BG))
 
     local thick = Brand.LINE_THICKNESS
     local r, g, b = Brand.ACCENT[1], Brand.ACCENT[2], Brand.ACCENT[3]
@@ -763,8 +836,8 @@ function Brand.MakeCheckbox(parent, size)
         return self.checked
     end
 
-    cb:SetScript("OnEnter", function() bg:SetColorTexture(0.18, 0.18, 0.18, 0.75) end)
-    cb:SetScript("OnLeave", function() bg:SetColorTexture(0.1, 0.1, 0.1, 0.6) end)
+    cb:SetScript("OnEnter", function() bg:SetColorTexture(unpack(Brand.INPUT_BG_HOVER)) end)
+    cb:SetScript("OnLeave", function() bg:SetColorTexture(unpack(Brand.INPUT_BG)) end)
     cb:SetScript("OnClick", function(self)
         self:SetChecked(not self.checked)
         if self.OnToggle then self.OnToggle(self) end
@@ -797,14 +870,14 @@ function Brand.MakeDropdown(parent, width, opts)
     local dd = CreateFrame("Button", nil, parent, "BackdropTemplate")
     PixelUtil.SetSize(dd, width, height)
     dd:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8x8" })
-    dd:SetBackdropColor(0.1, 0.1, 0.1, 0.6)
+    dd:SetBackdropColor(unpack(Brand.INPUT_BG))
     Brand.DrawBorder(dd, 0)
 
     local label = dd:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     label:SetPoint("LEFT", 10, 0)
     label:SetPoint("RIGHT", -22, 0)
     label:SetJustifyH("LEFT")
-    label:SetTextColor(0.9, 0.9, 0.9)
+    label:SetTextColor(Brand.BODY_TEXT_COLOR[1], Brand.BODY_TEXT_COLOR[2], Brand.BODY_TEXT_COLOR[3])
     dd.label = label
 
     local arrow = dd:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
@@ -812,8 +885,8 @@ function Brand.MakeDropdown(parent, width, opts)
     arrow:SetText("v")
     arrow:SetTextColor(Brand.ACCENT[1], Brand.ACCENT[2], Brand.ACCENT[3])
 
-    dd:SetScript("OnEnter", function(self) self:SetBackdropColor(0.18, 0.18, 0.18, 0.75) end)
-    dd:SetScript("OnLeave", function(self) self:SetBackdropColor(0.1, 0.1, 0.1, 0.6) end)
+    dd:SetScript("OnEnter", function(self) self:SetBackdropColor(unpack(Brand.INPUT_BG_HOVER)) end)
+    dd:SetScript("OnLeave", function(self) self:SetBackdropColor(unpack(Brand.INPUT_BG)) end)
 
     -- List panel: sized to exactly fit its own rows (no fixed height that
     -- could either clip a long list or leave dead space on a short one).
@@ -875,12 +948,12 @@ function Brand.MakeDropdown(parent, width, opts)
         searchBox:SetHeight(24)
         searchBox:SetAutoFocus(false)
         searchBox:SetFont(Brand.BODY_FONT_PATH, LIST_FONT_SIZE, "")
-        searchBox:SetTextColor(0.9, 0.9, 0.9)
+        searchBox:SetTextColor(Brand.BODY_TEXT_COLOR[1], Brand.BODY_TEXT_COLOR[2], Brand.BODY_TEXT_COLOR[3])
         local hint = searchBox:CreateFontString(nil, "OVERLAY")
         hint:SetFont(Brand.BODY_FONT_PATH, LIST_FONT_SIZE, "")
         hint:SetPoint("LEFT", 0, 0)
         hint:SetText("Search...")
-        hint:SetTextColor(0.4, 0.4, 0.5)
+        hint:SetTextColor(Brand.DESC_COLOR[1], Brand.DESC_COLOR[2], Brand.DESC_COLOR[3])
         searchBox.hint = hint
 
         local divider = list:CreateTexture(nil, "ARTWORK")
@@ -905,7 +978,7 @@ function Brand.MakeDropdown(parent, width, opts)
         noMatch:SetFont(Brand.BODY_FONT_PATH, LIST_FONT_SIZE, "")
         noMatch:SetPoint("TOPLEFT", list, "TOPLEFT", 10, -(SEARCH_TOP + 6))
         noMatch:SetText("No matches")
-        noMatch:SetTextColor(0.5, 0.5, 0.6)
+        noMatch:SetTextColor(Brand.DESC_COLOR[1], Brand.DESC_COLOR[2], Brand.DESC_COLOR[3])
         noMatch:Hide()
 
         scroll:EnableMouseWheel(true)
