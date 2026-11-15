@@ -46,7 +46,7 @@ local function AttachAutocomplete(editBox, getCandidates, onSelect)
     listFrame:SetPoint("TOPLEFT", editBox, "BOTTOMLEFT", 0, -2)
     listFrame:SetWidth(160)
     listFrame:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8x8" })
-    listFrame:SetBackdropColor(0.05, 0.05, 0.05, 0.97)
+    listFrame:SetBackdropColor(Brand.BG[1], Brand.BG[2], Brand.BG[3], 0.97)
     local thick = Brand.LINE_THICKNESS
     local ar, ag, ab = Brand.ACCENT[1], Brand.ACCENT[2], Brand.ACCENT[3]
     local lTop = listFrame:CreateTexture(nil, "ARTWORK")
@@ -97,7 +97,7 @@ local function AttachAutocomplete(editBox, getCandidates, onSelect)
                 local fs = btn:CreateFontString(nil, "OVERLAY")
                 fs:SetFont(Brand.BODY_FONT_PATH, 13, "")
                 fs:SetPoint("LEFT", btn, "LEFT", 4, 0)
-                fs:SetTextColor(0.9, 0.9, 0.9)
+                fs:SetTextColor(Brand.BODY_TEXT_COLOR[1], Brand.BODY_TEXT_COLOR[2], Brand.BODY_TEXT_COLOR[3])
                 btn.text = fs
                 local hl = btn:CreateTexture(nil, "HIGHLIGHT")
                 hl:SetAllPoints()
@@ -268,7 +268,7 @@ local function GetReminderFrame()
 
     local label = reminderFrame:CreateFontString(nil, "OVERLAY")
     label:SetFont(Brand.BODY_FONT_PATH, 13, "")
-    label:SetTextColor(0.9, 0.9, 0.9)
+    label:SetTextColor(Brand.BODY_TEXT_COLOR[1], Brand.BODY_TEXT_COLOR[2], Brand.BODY_TEXT_COLOR[3])
     label:SetPoint("TOP", reminderFrame, "TOP", 0, -14)
     label:SetWidth(292)
     label:SetHeight(52)
@@ -375,7 +375,7 @@ local function CreateFramework(container, width, height)
 
     local searchPlaceholder = searchBox:CreateFontString(nil, "OVERLAY")
     searchPlaceholder:SetFont(Brand.BODY_FONT_PATH, 13, "")
-    searchPlaceholder:SetTextColor(0.5, 0.5, 0.5)
+    searchPlaceholder:SetTextColor(Brand.DESC_COLOR[1], Brand.DESC_COLOR[2], Brand.DESC_COLOR[3])
     searchPlaceholder:SetPoint("LEFT", searchBox, "LEFT", 4, 0)
     searchPlaceholder:SetText("Search members...")
 
@@ -579,7 +579,7 @@ local function GetRow(i)
         toggleFs:SetJustifyH("RIGHT")
         toggleFs:SetPoint("RIGHT", toggle, "RIGHT", 0, 0)
         toggleFs:SetFont(Brand.BODY_FONT_PATH, 12, "")
-        toggleFs:SetTextColor(0.7, 0.7, 0.7)
+        toggleFs:SetTextColor(Brand.DESC_COLOR[1], Brand.DESC_COLOR[2], Brand.DESC_COLOR[3])
         toggle.label = toggleFs
         toggle:Hide()
         btn.toggle = toggle
@@ -788,7 +788,7 @@ local function WrapBox(parent, x, y, width, height, text, onSave)
     edit:SetAutoFocus(false)
     edit:SetMaxLetters(0)
     edit:SetFont(Brand.BODY_FONT_PATH, 13, "")
-    edit:SetTextColor(0.85, 0.85, 0.9)
+    edit:SetTextColor(Brand.BODY_TEXT_COLOR[1], Brand.BODY_TEXT_COLOR[2], Brand.BODY_TEXT_COLOR[3])
     edit:SetJustifyH("LEFT")
     edit:SetText(text or "")
     box:SetScript("OnMouseDown", function() edit:SetFocus() end)
@@ -846,7 +846,7 @@ local function BuildProfileFields(parent, member, guild, width)
     end
 
     local subline = (member.level and ("Level " .. member.level .. (member.className and (" " .. member.className) or "")) or "")
-    local statusFs = Brand.FS(parent, subline, Brand.BODY_FONT_PATH, 13, "", 0.7, 0.7, 0.7)
+    local statusFs = Brand.FS(parent, subline, Brand.BODY_FONT_PATH, 13, "", Brand.BODY_TEXT_COLOR[1], Brand.BODY_TEXT_COLOR[2], Brand.BODY_TEXT_COLOR[3])
     statusFs:SetPoint("TOPLEFT", parent, "TOPLEFT", 0, -y)
     table.insert(detailWidgets, statusFs)
 
@@ -856,7 +856,7 @@ local function BuildProfileFields(parent, member, guild, width)
     dot:SetColorTexture(IsOnline(member.charName) and 0.2 or 0.4, IsOnline(member.charName) and 1 or 0.4, 0.2, 1)
     table.insert(detailWidgets, dot)
     local statusLabel = Brand.FS(parent, IsOnline(member.charName) and "Online" or "Offline",
-        Brand.BODY_FONT_PATH, 13, "", 0.7, 0.7, 0.7)
+        Brand.BODY_FONT_PATH, 13, "", Brand.BODY_TEXT_COLOR[1], Brand.BODY_TEXT_COLOR[2], Brand.BODY_TEXT_COLOR[3])
     statusLabel:SetPoint("LEFT", dot, "RIGHT", 5, 0)
     table.insert(detailWidgets, statusLabel)
 
@@ -1014,7 +1014,7 @@ local function BuildProfileFields(parent, member, guild, width)
         end)
         table.insert(detailWidgets, bBtn)
     else
-        local bFs = Brand.FS(parent, birthdayText, Brand.BODY_FONT_PATH, 13, "", 0.8, 0.8, 0.8)
+        local bFs = Brand.FS(parent, birthdayText, Brand.BODY_FONT_PATH, 13, "", Brand.BODY_TEXT_COLOR[1], Brand.BODY_TEXT_COLOR[2], Brand.BODY_TEXT_COLOR[3])
         bFs:SetPoint("TOPLEFT", parent, "TOPLEFT", halfWidth + 16 + 70, -y)
         table.insert(detailWidgets, bFs)
     end
@@ -1085,14 +1085,14 @@ local function BuildProfileFields(parent, member, guild, width)
         y = y + 22
         local strikes = member.strikes or {}
         if #strikes == 0 then
-            local noneFs = Brand.FS(parent, "No strikes.", Brand.BODY_FONT_PATH, 13, "", 0.6, 0.6, 0.6)
+            local noneFs = Brand.FS(parent, "No strikes.", Brand.BODY_FONT_PATH, 13, "", Brand.DESC_COLOR[1], Brand.DESC_COLOR[2], Brand.DESC_COLOR[3])
             noneFs:SetPoint("TOPLEFT", parent, "TOPLEFT", 4, -y)
             table.insert(detailWidgets, noneFs)
             y = y + 22
         else
             for i, strike in ipairs(strikes) do
                 local fs = Brand.FS(parent, date("%b %d, %Y", strike.at or 0) .. "   " .. (strike.text or ""),
-                    Brand.BODY_FONT_PATH, 13, "", 0.85, 0.85, 0.9)
+                    Brand.BODY_FONT_PATH, 13, "", Brand.BODY_TEXT_COLOR[1], Brand.BODY_TEXT_COLOR[2], Brand.BODY_TEXT_COLOR[3])
                 fs:SetPoint("TOPLEFT", parent, "TOPLEFT", 4, -y)
                 fs:SetWidth(width - 80)
                 fs:SetJustifyH("LEFT")
@@ -1138,7 +1138,7 @@ local function BuildProfileFields(parent, member, guild, width)
         y = y + 18
         local alts = R:GetAlts(guild, member.charName)
         if #alts == 0 then
-            local noneFs = Brand.FS(parent, "No alts linked yet.", Brand.BODY_FONT_PATH, 13, "", 0.6, 0.6, 0.6)
+            local noneFs = Brand.FS(parent, "No alts linked yet.", Brand.BODY_FONT_PATH, 13, "", Brand.DESC_COLOR[1], Brand.DESC_COLOR[2], Brand.DESC_COLOR[3])
             noneFs:SetPoint("TOPLEFT", parent, "TOPLEFT", 4, -y)
             table.insert(detailWidgets, noneFs)
             y = y + 20
@@ -1159,7 +1159,7 @@ local function BuildProfileFields(parent, member, guild, width)
                     R:MarkReviewed(guild, alt.charName)
                     GP:Refresh()
                 end)
-                chip:SetScript("OnEnter", function() chipFs:SetTextColor(1, 1, 1) end)
+                chip:SetScript("OnEnter", function() chipFs:SetTextColor(Brand.HOVER_COLOR[1], Brand.HOVER_COLOR[2], Brand.HOVER_COLOR[3]) end)
                 chip:SetScript("OnLeave", function()
                     chipFs:SetTextColor(online and 0.2 or 0.55, online and 1 or 0.55, online and 0.2 or 0.55)
                 end)
