@@ -1,5 +1,31 @@
 # Xal's Roster Roundup - Changelog
 
+## 1.4.0 - November 15, 2026
+
+I started playing on WoW Forever, and Roster Roundup had a rough time there. My roster filled up with people from guilds I'd left, the guild invite from Recruit Next just got blocked, and a few windows spilled past their edges. So this update is me making it work properly there, and fixing the ugly parts I ran into along the way. Recruiting is now whisper-first, with a little reply box that collects the answers so you can right-click a name and invite from the game's own menu. While I was in there I added a backup page, a bigger activity log, and six skins to pick from. Thanks for being part of the Xal family.
+
+### 🆕 New
+- A Recruit Replies box that collects the whispers you sent and every answer. It pops up when someone writes back, and a right-click on a name gives you the game's own menu, including Invite to Guild.
+- A Replies card on the Recruitment page, newest first.
+- A "Recruit Blacklist: never contact again" entry in the player right-click menu, for the replies the automatic opt-out detection misses.
+- Unguilded players you run into (nameplate, target, mouseover) can become recruit candidates, and the class filter shows how many of each class your guild already has.
+- A Backup page: a safety copy of your guild data about once a day, one-click restore, and Export / Import.
+- A Summary on the Log page with joins and leaves over 7 and 30 days, who left most recently and what rank they held, and an Export you can paste into a spreadsheet. Each member also keeps a history of their rank changes.
+- Six skins on the Display page - Crimson, Ember, Bronze, Midnight, Indigo, and the light Parchment.
+- WoW: Forever support is being built in, and the addon now loads there.
+
+### 🔧 Fixed
+- On Forever, a scrambled roster read no longer fills your roster and log with members from other guilds. Reads that don't match Blizzard's own member count are ignored and tried again.
+- Hidden-name rows from Forever are skipped instead of being saved as garbage members.
+- Recruit Next on Forever now whispers instead of trying a guild invite the game blocks, and scanned players no longer get a made-up name suffix.
+- The What's New window now sizes itself to fit all of its text.
+- The Log page's filter buttons no longer run past the edge of their box.
+- Typing `/rrroster reset` clears and re-reads your current guild's saved roster, log included.
+
+### ⚙️ Under the hood
+- Greys across the Options, Guild, and mouseover windows now follow the chosen skin.
+- Added a `/rrroster` check and a `/rrreplies` toggle.
+
 ## 1.3.0 - October 24, 2026
 
 1.2.0 got Roster Roundup off the ground, but the more I used it, the more it felt like a collection of pages instead of one tool. So this update is a real rebuild. Recruitment now works the way the best guild-recruiting addons do: scan for unguilded players, whisper and invite them, post your ads, and keep a blacklist, all with one candidate in front of you at a time. Every page got the same bordered-card look as the rest of my addons, and the Guild Master and Officer pages picked up real tools for actually running a guild, including promotion rules, strikes, check-ins for members who've gone quiet, and syncing between officers who have the addon. I also cut the things that weren't earning their spot, like the per-character storage page. Thanks for being part of the Xal family.
