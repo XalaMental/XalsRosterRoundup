@@ -31,7 +31,7 @@ Rec.MAX_CHAT_BYTES = MAX_CHAT_BYTES
 
 local RECRUITMENT_DEFAULTS = {
     scanMin = 1,
-    scanMax = 90,
+    scanMax = XRR.IsForever and 60 or 90,
     -- Level bands per scan click, low end first - the game cuts a /who
     -- answer off at about 50 names, so one huge query silently loses people.
     scanStep = 10,
@@ -55,6 +55,8 @@ local RECRUITMENT_DEFAULTS = {
     soundInviteAccepted = true, -- a sound when someone you invited joins
     soundReply = true, -- a sound when someone you recruited whispers back
     unitMenu = true, -- Roster Roundup entries in the game's right-click player menu
+    replyBox = true, -- the Recruit Replies box pops up when someone answers
+    passiveCollect = true, -- unguilded players you see become candidates
     -- Blacklist.
     blacklistDays = 14,
     optOutDetection = true,
@@ -681,7 +683,8 @@ local function ProcessWhoResults()
                 -- found them. Same-realm results get the player's own realm
                 -- appended so the target is always whisper-ready.
                 local fullName = info.fullName
-                if not fullName:find("-", 1, true) then
+                -- Forever: a same-realm name is used as it is, no realm added.
+                if not XRR.IsForever and not fullName:find("-", 1, true) then
                     local _, realm = UnitFullName("player")
                     if realm and realm ~= "" then fullName = fullName .. "-" .. realm end
                 end
@@ -923,6 +926,7 @@ local function SendWhisper(entry)
     end
     entry.whisperSent = true
     RecordStat("whispers")
+    if XRR.ReplyInbox then XRR.ReplyInbox:Sent(entry, msg) end
     return true
 end
 
@@ -990,7 +994,11 @@ end
 -- invite is a protected action.
 -- mode: nil = what the settings say (whisper and/or invite), "whisper" =
 -- whisper only, "invite" = invite only (the Scan row's right-click menu).
-function Rec:RecruitCandidate(charName, mode)
+-- Forever does not let an addon send guild invites, so there a recruit is a
+-- whisper only; whoever answers is invited from the game's own right-click
+-- menu on their name (Invite to Guild), which works there.
+-- Returns true, idx, candidate, doWhisper, doInvite - or false, reason.
+function Rec:CheckRecruit(charName, mode)
     local db = Rec:GetDB()
     local idx
     for i, c in ipairs(Rec.candidates) do
@@ -1003,6 +1011,15 @@ function Rec:RecruitCandidate(charName, mode)
         doWhisper, doInvite = true, false
     elseif mode == "invite" then
         doWhisper, doInvite = false, true
+    end
+    if XRR.IsForever then
+        if mode == "invite" then
+            return false, "Forever won't let an addon send guild invites - right-click their name and choose Invite to Guild"
+        end
+        doWhisper, doInvite = true, false
+        if not db.whisperEnabled and mode ~= "whisper" then
+            return false, "whispers are turned off in Search Settings"
+        end
     end
 
     if not IsInGuild() then return false, "you're not in a guild" end
@@ -1025,6 +1042,13 @@ function Rec:RecruitCandidate(charName, mode)
     if doWhisper and db.dailyWhisperCap > 0 and Rec:GetDailyWhisperCount() >= db.dailyWhisperCap then
         return false, "daily whisper cap reached"
     end
+    return true, idx, c, doWhisper, doInvite
+end
+
+function Rec:RecruitCandidate(charName, mode)
+    local db = Rec:GetDB()
+    local ok, idx, c, doWhisper, doInvite = Rec:CheckRecruit(charName, mode)
+    if not ok then return false, idx end
 
     table.remove(Rec.candidates, idx)
     Rec.actionCooldownUntil = GetTime() + ACTION_COOLDOWN
@@ -1057,7 +1081,7 @@ function Rec:RecruitPlayer(name, info, mode)
     if InSent(short) then return false, "they're already on the Recruit Next card" end
     if Rec:IsBlacklisted(short) then return false, "they're on your blacklist" end
     local fullName = name
-    if not fullName:find("-", 1, true) then
+    if not XRR.IsForever and not fullName:find("-", 1, true) then
         local _, realm = UnitFullName("player")
         if realm and realm ~= "" then fullName = fullName .. "-" .. realm end
     end
@@ -1345,22 +1369,80 @@ local function OnWhisperReceived(msg, sender)
     -- sound so you notice.
     entry.reply = TruncateChat(msg)
     entry.replyAt = time()
+    if XRR.ReplyInbox then XRR.ReplyInbox:Reply(entry, TruncateChat(msg), db.replyBox ~= false) end
     if db.soundReply and PlaySound and SOUNDKIT then
         PlaySound(SOUNDKIT.UI_BNET_TOAST or SOUNDKIT.TELL_MESSAGE, "Master")
     end
     NotifyUpdate()
 end
 
+-- Passive collection ---------------------------------------------------------
+-- Players you simply run into - a nameplate, your target, your mouseover -
+-- who have no guild become candidates too, which gets around a /who search
+-- showing at most about 50 names. Same filters as a scan apply.
+local seenAt = {}
+local MAX_PASSIVE_CANDIDATES = 300
+
+local function ConsiderUnit(unit)
+    local db = Rec:GetDB()
+    if db.passiveCollect == false or not unit then return end
+    if not UnitExists(unit) or not UnitIsPlayer(unit) or UnitIsUnit(unit, "player") then return end
+    if not UnitIsFriend("player", unit) then return end
+    local name = UnitName(unit)
+    if type(name) ~= "string" or name == "" or Secret(name) then return end
+    local guildName = GetGuildInfo(unit)
+    if guildName ~= nil then return end -- in a guild (or unknown to the secret system)
+    local now = GetTime()
+    if seenAt[name] and now - seenAt[name] < 60 then return end
+    seenAt[name] = now
+
+    local short = ShortName(name)
+    if short == "" or short == UnitName("player") then return end
+    if Rec:IsBlacklisted(short) or InSent(short) or HaveCandidate(short) then return end
+    if #Rec.candidates >= MAX_PASSIVE_CANDIDATES then return end
+
+    local level = UnitLevel(unit)
+    if type(level) ~= "number" or Secret(level) then return end
+    if level < db.scanMin or level > db.scanMax then return end
+    local classStr, classFile = UnitClass(unit)
+    local race = UnitRace(unit)
+
+    local fullName = name
+    if not XRR.IsForever and not fullName:find("-", 1, true) then
+        local _, realm = UnitFullName(unit)
+        if realm and realm ~= "" then fullName = fullName .. "-" .. realm end
+    end
+    local entry = {
+        charName = short, fullName = fullName, level = level,
+        classStr = classStr, classFile = classFile, race = race,
+    }
+    if PassesFilters({ area = entry.area, race = entry.race, classStr = entry.classStr, rio = GetRaiderIOScore(fullName) }) then
+        entry.rio = GetRaiderIOScore(fullName)
+        table.insert(Rec.candidates, entry)
+        table.sort(Rec.candidates, function(x, y) return (x.level or 0) < (y.level or 0) end)
+        NotifyUpdate()
+    end
+end
+
 -- Events -----------------------------------------------------------------------
 local eventFrame = CreateFrame("Frame")
 eventFrame:RegisterEvent("PLAYER_LOGIN")
+eventFrame:RegisterEvent("NAME_PLATE_UNIT_ADDED")
+eventFrame:RegisterEvent("PLAYER_TARGET_CHANGED")
+eventFrame:RegisterEvent("UPDATE_MOUSEOVER_UNIT")
 eventFrame:RegisterEvent("WHO_LIST_UPDATE")
 eventFrame:RegisterEvent("CHAT_MSG_SYSTEM")
 eventFrame:RegisterEvent("CHAT_MSG_WHISPER")
 eventFrame:RegisterEvent("INITIAL_CLUBS_LOADED")
 eventFrame:RegisterEvent("CLUB_FINDER_RECRUITMENT_POST_RETURNED")
 eventFrame:SetScript("OnEvent", function(_, event, ...)
-    if event == "WHO_LIST_UPDATE" then
+    if event == "NAME_PLATE_UNIT_ADDED" then
+        ConsiderUnit((...))
+    elseif event == "PLAYER_TARGET_CHANGED" then
+        ConsiderUnit("target")
+    elseif event == "UPDATE_MOUSEOVER_UNIT" then
+        ConsiderUnit("mouseover")
+    elseif event == "WHO_LIST_UPDATE" then
         -- Only our own searches - never one the player typed by hand.
         if pendingWho then ProcessWhoResults() end
     elseif event == "CHAT_MSG_SYSTEM" then
@@ -1532,7 +1614,7 @@ local function MenuTargetName(contextData)
     if type(name) ~= "string" or name == "" then return nil end
     if Secret(name) then return nil end
     local server = contextData.server
-    if type(server) == "string" and server ~= "" and not name:find("-", 1, true) then
+    if not XRR.IsForever and type(server) == "string" and server ~= "" and not name:find("-", 1, true) then
         local myRealm = GetNormalizedRealmName and GetNormalizedRealmName()
         if server ~= myRealm then name = name .. "-" .. server end
     end
@@ -1566,17 +1648,27 @@ local function AddRecruitMenu(_, rootDescription, contextData)
     -- Welcome Wagon has its own plain "Invite to Guild"; showing it twice
     -- would be clutter.
     local wagon = C_AddOns and C_AddOns.IsAddOnLoaded and C_AddOns.IsAddOnLoaded("XalsWelcomeWagon")
-    if not wagon then
+    -- On Forever the game's own "Invite to Guild" is the one that works.
+    if not wagon and not XRR.IsForever then
         rootDescription:CreateButton("Invite to Guild", function()
             C_GuildInfo.Invite(name)
         end)
     end
-    rootDescription:CreateButton("Recruit (whisper and invite)", function()
+    rootDescription:CreateButton(XRR.IsForever and "Recruit (whisper)" or "Recruit (whisper and invite)", function()
         local ok, reason = Rec:RecruitPlayer(name, info)
         if not ok and reason then Say("Couldn't recruit " .. ShortName(name) .. ": " .. reason .. ".") end
     end)
-    rootDescription:CreateButton("Add to Recruit Blacklist", function()
-        Rec:AddToBlacklist(ShortName(name), "manual")
+    -- Permanent, and it also takes them off the Recruit Next and Replies
+    -- cards if you had already whispered them - for the answers the
+    -- automatic opt-out detection misses.
+    rootDescription:CreateButton("Recruit Blacklist: never contact again", function()
+        local short = ShortName(name)
+        if InSent(short) then
+            Rec:BlacklistSent(short)
+        else
+            Rec:AddToBlacklist(short, "manual")
+        end
+        Say(short .. " is on your recruit blacklist for good.")
     end)
 end
 
