@@ -193,7 +193,7 @@ end
 function R:GetOverview()
     local total = GetNumGuildMembers()
     local online, maxLevel, below = 0, 0, 0
-    local cap = GetMaxLevelForPlayerExpansion and GetMaxLevelForPlayerExpansion() or 90
+    local cap = GetMaxLevelForPlayerExpansion and GetMaxLevelForPlayerExpansion() or (XRR.IsForever and 60 or 90)
     local byClass = {}
     for i = 1, total do
         local name, _, _, level, className, _, _, _, isOnline = GetGuildRosterInfo(i)
@@ -663,6 +663,34 @@ function R:SyncFromLiveGuild()
     local seen = {}
     local numMembers = GetNumGuildMembers()
 
+    -- Forever's layering can hand back a roster that belongs to a different
+    -- guild (or a mix). Blizzard's own club data for the guild you are in is
+    -- the second opinion: if the two disagree on how many members there are,
+    -- this read is not trusted at all - nothing is added, updated or logged
+    -- from it - and it is tried again a few seconds later.
+    if XRR.IsForever and C_Club and C_Club.GetGuildClubId and C_Club.GetClubMembers then
+        local clubId = C_Club.GetGuildClubId()
+        local clubList = clubId and C_Club.GetClubMembers(clubId)
+        if not clubList or #clubList ~= numMembers then
+            if not R.foreverRetryPending then
+                R.foreverRetryPending = true
+                C_Timer.After(5, function()
+                    R.foreverRetryPending = false
+                    if IsInGuild() then C_GuildInfo.GuildRoster() end
+                end)
+            end
+            return guild
+        end
+    end
+
+    -- Clear out placeholder entries an earlier version already saved.
+    for key in pairs(guild.members) do
+        if type(key) == "string" and key:find("|K", 1, true) then
+            guild.members[key] = nil
+            if guild.pendingLeave then guild.pendingLeave[key] = nil end
+        end
+    end
+
     -- First-ever sync for this guild (nothing tracked yet) is a silent
     -- baseline: everyone currently in the guild "joined" before this addon
     -- was watching, so logging them all as joins is just noise.
@@ -685,6 +713,14 @@ function R:SyncFromLiveGuild()
         -- signature) - needed for C_GuildInfo.SetGuildRankOrder, the same
         -- function Blizzard's own rank dropdown uses.
         local name, rankName, rankIndex, level, className, _, _, _, _, _, _, _, _, _, _, _, guid = GetGuildRosterInfo(i)
+        -- Forever can hand back hidden ("secret") names and GUIDs that show up
+        -- as placeholders like "|Ks54|k". Those are not real names - storing
+        -- them made garbage rows - so such a row is simply skipped.
+        if issecretvalue and (issecretvalue(name) or issecretvalue(guid)) then
+            name, guid = nil, nil
+        elseif type(name) == "string" and name:find("|K", 1, true) then
+            name, guid = nil, nil
+        end
         -- Confirmed real Blizzard client bug (GRM's own code names it
         -- directly, GRM_ScanRoster.lua: "This started happening in 12.0.1
         -- shortly after logging in... subsequent scans seem to show the
@@ -757,6 +793,11 @@ function R:SyncFromLiveGuild()
             elseif m.rankName and m.rankName ~= rankName then
                 table.insert(guild.rankChanges,
                     { charName = shortName, from = m.rankName, to = rankName, time = time() })
+                -- A permanent per-member history (the list above can be
+                -- dismissed; this one stays with the member).
+                m.rankHistory = m.rankHistory or {}
+                table.insert(m.rankHistory, { from = m.rankName, to = rankName, time = time() })
+                while #m.rankHistory > 20 do table.remove(m.rankHistory, 1) end
                 -- Lower rankOrder = higher rank (the Guild Master is always
                 -- 1) - m.rankOrder is still last sync's value here, it only
                 -- gets updated below. No "by so-and-so" attribution: Blizzard
@@ -835,6 +876,18 @@ function R:SyncFromLiveGuild()
     end
     local discrepancyPassed = numMembers > 0
         and (trackedCount == 0 or (numMembers / trackedCount) >= 0.5)
+    -- A big drop is believable when Blizzard's own club data for this guild
+    -- reports the same member count as the roster read: two independent
+    -- sources agree, so it is not a partial read. This is what lets a
+    -- guild that really is small (or got scrambled by Forever layering and
+    -- then settled) clear out entries that were never real members.
+    if not discrepancyPassed and numMembers > 0 and C_Club and C_Club.GetGuildClubId and C_Club.GetClubMembers then
+        local clubId = C_Club.GetGuildClubId()
+        local clubMembers = clubId and C_Club.GetClubMembers(clubId)
+        if clubMembers and #clubMembers == numMembers then
+            discrepancyPassed = true
+        end
+    end
 
     if not discrepancyPassed then
         C_Timer.After(5, function()
@@ -864,6 +917,15 @@ function R:SyncFromLiveGuild()
                 -- Last seen before this session started = it happened while
                 -- you were away; otherwise it just happened.
                 local gone = guild.members[charName]
+                -- Remembered for the Log page's recent-leavers list.
+                if gone then
+                    guild.leavers = guild.leavers or {}
+                    table.insert(guild.leavers, 1, {
+                        name = charName, joinedAt = gone.firstSeenTime, rank = gone.rankName,
+                        level = gone.level, className = gone.className, leftAt = time(),
+                    })
+                    while #guild.leavers > 60 do table.remove(guild.leavers) end
+                end
                 if gone and (gone.lastSeenAt or 0) < R.sessionStart then
                     Away("left", charName .. " is no longer in the guild.")
                 else
@@ -1158,3 +1220,47 @@ syncFrame:SetScript("OnEvent", function(_, event)
         C_Timer.After(MIN_SYNC_INTERVAL - elapsed, RunSync)
     end
 end)
+
+-- /rrroster: prints what the game's roster call returns right now, so a
+-- roster that looks mixed between guilds can be told apart from stored data.
+SLASH_XRRROSTER1 = "/rrroster"
+SlashCmdList["XRRROSTER"] = function(msg)
+    if msg and msg:lower():match("^%s*reset%s*$") then
+        local cur = R:GetCurrentGuild()
+        if not cur then print("|cffb84d00XRR roster|r you are not in a tracked guild.") return end
+        cur.members = {}
+        cur.pendingLeave = {}
+        cur.log = {}
+        cur.awayChanges = {}
+        cur.rankChanges = {}
+        R:SyncFromLiveGuild()
+        local n = 0
+        for _ in pairs(cur.members) do n = n + 1 end
+        print("|cffb84d00XRR roster|r cleared and re-read " .. tostring(cur.name) .. ": " .. n .. " members now tracked.")
+        if XRR.GuildPanel and XRR.GuildPanel.Refresh then XRR.GuildPanel:Refresh() end
+        return
+    end
+    local name = GetGuildInfo("player")
+    local total, online = GetNumGuildMembers()
+    print("|cffb84d00XRR roster|r guild=" .. tostring(name) .. " rows=" .. tostring(total) .. " online=" .. tostring(online))
+    local realms, ranks = {}, {}
+    for i = 1, (total or 0) do
+        local n, rankName, _, _, _, _, _, _, _, _, _, _, _, _, _, _, guid = GetGuildRosterInfo(i)
+        if n then
+            local realm = type(guid) == "string" and guid:match("^Player%-(%d+)%-") or "none"
+            realms[realm] = (realms[realm] or 0) + 1
+            ranks[tostring(rankName)] = (ranks[tostring(rankName)] or 0) + 1
+        end
+    end
+    for k, v in pairs(realms) do print("  realm id " .. k .. ": " .. v) end
+    for k, v in pairs(ranks) do print("  rank " .. k .. ": " .. v) end
+    if C_Club and C_Club.GetGuildClubId then
+        local id = C_Club.GetGuildClubId()
+        local list = id and C_Club.GetClubMembers and C_Club.GetClubMembers(id)
+        print("  club id " .. tostring(id) .. " members " .. tostring(list and #list or "n/a"))
+    end
+    local g = R:GetCurrentGuild()
+    local stored = 0
+    if g then for _ in pairs(g.members) do stored = stored + 1 end end
+    print("  stored for this guild: " .. stored)
+end
