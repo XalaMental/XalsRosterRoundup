@@ -14,7 +14,7 @@ globals = {
     "XRR_CharDB",
     "StaticPopupDialogs", -- a real mutable table addons add popup entries to
     "ColorPickerFrame", -- Blizzard's own color picker, fields set directly on it
-    "SLASH_XRRAPPS1", -- this addon's own slash-command name global
+    "SLASH_XRRAPPS1", "SLASH_XRRROSTER1", "SLASH_XRRREPLIES1", -- this addon's own slash-command name global
     "SlashCmdList", -- Blizzard's own table, addons add entries to it directly
 }
 
@@ -95,6 +95,9 @@ read_globals = {
     "InterfaceOptions_AddCategory",
     "UnitName",
     "GetMaxLevelForPlayerExpansion",
+    "GetBuildInfo",
+    "SetItemRef",
+    "UnitIsFriend",
     "CanEditMOTD",
     "CanEditGuildInfo",
     "GetGuildRosterMOTD",
@@ -117,3 +120,6 @@ read_globals = {
 -- variable"/line-length noise in generated UI code like this - not real bugs.
 max_line_length = false
 unused_args = false
+
+-- Family-shared master copy (Dev\Assets\Skins) - never edited per addon.
+files["XalsSkins.lua"] = { ignore = { "211" } }
