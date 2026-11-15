@@ -222,7 +222,7 @@ local function BuildHome(content)
 
     local body = content:CreateFontString(nil, "OVERLAY")
     body:SetFont(Brand.BODY_FONT_PATH, 15, "")
-    body:SetTextColor(0.85, 0.85, 0.85)
+    body:SetTextColor(Brand.BODY_TEXT_COLOR[1], Brand.BODY_TEXT_COLOR[2], Brand.BODY_TEXT_COLOR[3])
     body:SetPoint("TOP", rule, "BOTTOM", 0, -16)
     body:SetWidth(320)
     body:SetJustifyH("CENTER")
@@ -303,7 +303,7 @@ local function MakeWrapBox(card, height, text, maxLetters)
     edit:SetAutoFocus(false)
     edit:SetMaxLetters(maxLetters or 0)
     edit:SetFont(Brand.BODY_FONT_PATH, 13, "")
-    edit:SetTextColor(0.8, 0.8, 0.85)
+    edit:SetTextColor(Brand.BODY_TEXT_COLOR[1], Brand.BODY_TEXT_COLOR[2], Brand.BODY_TEXT_COLOR[3])
     edit:SetJustifyH("LEFT")
     edit:SetText(text or "")
     box:SetScript("OnMouseDown", function() edit:SetFocus() end)
@@ -382,14 +382,14 @@ local function BuildOverviewCard(body, W, y)
     local ov = R:GetOverview()
     local ovLine = Brand.BodyFS(card, ("Online now: %d of %d  |  At max level: %d  |  Below max: %d")
         :format(ov.online, ov.total, ov.maxLevel, ov.below), 14)
-    ovLine:SetTextColor(0.8, 0.8, 0.85)
+    ovLine:SetTextColor(Brand.BODY_TEXT_COLOR[1], Brand.BODY_TEXT_COLOR[2], Brand.BODY_TEXT_COLOR[3])
     ovLine:SetPoint("TOPLEFT", card, "TOPLEFT", 14, -card.cy)
     card.cy = card.cy + 24
     if #ov.classes > 0 then
         local parts = {}
         for _, c in ipairs(ov.classes) do table.insert(parts, c.name .. " " .. c.n) end
         local classFs = Brand.BodyFS(card, "Online by class: " .. table.concat(parts, ", "), 13)
-        classFs:SetTextColor(0.6, 0.6, 0.6)
+        classFs:SetTextColor(Brand.DESC_COLOR[1], Brand.DESC_COLOR[2], Brand.DESC_COLOR[3])
         classFs:SetPoint("TOPLEFT", card, "TOPLEFT", 14, -card.cy)
         classFs:SetWidth(W - 28)
         classFs:SetJustifyH("LEFT")
@@ -411,7 +411,7 @@ local function BuildOfficerToolCards(body, W, y, guild)
             local msg = Brand.BodyFS(card, R:IsGuildMaster()
                 and "Set how many days each rank needs in Settings (top right)."
                 or "No promotion rules yet - the Guild Master sets them, and they reach you through sync.", 13)
-            msg:SetTextColor(0.6, 0.6, 0.6)
+            msg:SetTextColor(Brand.DESC_COLOR[1], Brand.DESC_COLOR[2], Brand.DESC_COLOR[3])
             msg:SetPoint("TOPLEFT", card, "TOPLEFT", 14, -card.cy)
             msg:SetWidth(W - 28)
             msg:SetJustifyH("LEFT")
@@ -419,7 +419,7 @@ local function BuildOfficerToolCards(body, W, y, guild)
             card.cy = card.cy + msg:GetStringHeight() + 8
         elseif #candidates == 0 then
             local msg = Brand.BodyFS(card, "Nobody is due a promotion right now.", 13)
-            msg:SetTextColor(0.6, 0.6, 0.6)
+            msg:SetTextColor(Brand.DESC_COLOR[1], Brand.DESC_COLOR[2], Brand.DESC_COLOR[3])
             msg:SetPoint("TOPLEFT", card, "TOPLEFT", 14, -card.cy)
             card.cy = card.cy + 24
         else
@@ -427,12 +427,12 @@ local function BuildOfficerToolCards(body, W, y, guild)
                 local c = candidates[i]
                 local nameFs = card:CreateFontString(nil, "OVERLAY")
                 nameFs:SetFont(Brand.BODY_FONT_PATH, 14, "")
-                nameFs:SetTextColor(0.9, 0.9, 0.9)
+                nameFs:SetTextColor(Brand.BODY_TEXT_COLOR[1], Brand.BODY_TEXT_COLOR[2], Brand.BODY_TEXT_COLOR[3])
                 nameFs:SetPoint("TOPLEFT", card, "TOPLEFT", 14, -card.cy)
                 nameFs:SetText(c.charName)
                 local infoFs = card:CreateFontString(nil, "OVERLAY")
                 infoFs:SetFont(Brand.BODY_FONT_PATH, 12, "")
-                infoFs:SetTextColor(0.55, 0.55, 0.55)
+                infoFs:SetTextColor(Brand.DESC_COLOR[1], Brand.DESC_COLOR[2], Brand.DESC_COLOR[3])
                 infoFs:SetPoint("LEFT", nameFs, "RIGHT", 12, 0)
                 infoFs:SetText(c.rankName .. " for " .. c.days .. " days (rule: " .. c.rule .. ")")
                 local promoteBtn = Brand.MakeTextLink(card, "Promote to " .. c.targetName, function()
@@ -444,7 +444,7 @@ local function BuildOfficerToolCards(body, W, y, guild)
             end
             if #candidates > 8 then
                 local more = Brand.BodyFS(card, "+" .. (#candidates - 8) .. " more", 12)
-                more:SetTextColor(0.6, 0.6, 0.6)
+                more:SetTextColor(Brand.DESC_COLOR[1], Brand.DESC_COLOR[2], Brand.DESC_COLOR[3])
                 more:SetPoint("TOPLEFT", card, "TOPLEFT", 14, -card.cy)
                 card.cy = card.cy + 22
             end
@@ -458,7 +458,7 @@ local function BuildOfficerToolCards(body, W, y, guild)
         local current = (C_GuildInfo.GetMOTD and C_GuildInfo.GetMOTD()) or GetGuildRosterMOTD() or ""
         local edit = MakeWrapBox(card, 60, current, 255)
         local countFs = Brand.BodyFS(card, "", 12)
-        countFs:SetTextColor(0.6, 0.6, 0.6)
+        countFs:SetTextColor(Brand.DESC_COLOR[1], Brand.DESC_COLOR[2], Brand.DESC_COLOR[3])
         countFs:SetPoint("TOPLEFT", card, "TOPLEFT", 14, -card.cy)
         local function UpdateCount() countFs:SetText(#edit:GetText() .. " / 255") end
         edit:SetScript("OnTextChanged", UpdateCount)
@@ -481,7 +481,7 @@ local function BuildOfficerToolCards(body, W, y, guild)
         local current = (C_GuildInfo.GetInfoText and C_GuildInfo.GetInfoText()) or (GetGuildInfoText and GetGuildInfoText()) or ""
         local edit = MakeWrapBox(card, 90, current, 500)
         local countFs = Brand.BodyFS(card, "", 12)
-        countFs:SetTextColor(0.6, 0.6, 0.6)
+        countFs:SetTextColor(Brand.DESC_COLOR[1], Brand.DESC_COLOR[2], Brand.DESC_COLOR[3])
         countFs:SetPoint("TOPLEFT", card, "TOPLEFT", 14, -card.cy)
         local function UpdateCount() countFs:SetText(#edit:GetText() .. " / 500") end
         edit:SetScript("OnTextChanged", UpdateCount)
@@ -503,7 +503,7 @@ local function BuildOfficerToolCards(body, W, y, guild)
     local inactive = GetInactiveMembers()
     local summary = Brand.BodyFS(card, #inactive .. " member" .. (#inactive == 1 and "" or "s")
         .. " haven't logged in for " .. R:GetInactiveDays() .. "+ days", 14)
-    summary:SetTextColor(0.8, 0.8, 0.85)
+    summary:SetTextColor(Brand.BODY_TEXT_COLOR[1], Brand.BODY_TEXT_COLOR[2], Brand.BODY_TEXT_COLOR[3])
     summary:SetPoint("TOPLEFT", card, "TOPLEFT", 14, -card.cy)
     card.cy = card.cy + 26
     local canRemove = CanGuildRemove and CanGuildRemove()
@@ -512,12 +512,12 @@ local function BuildOfficerToolCards(body, W, y, guild)
         local m = inactive[i]
         local nameFs = card:CreateFontString(nil, "OVERLAY")
         nameFs:SetFont(Brand.BODY_FONT_PATH, 14, "")
-        nameFs:SetTextColor(0.9, 0.9, 0.9)
+        nameFs:SetTextColor(Brand.BODY_TEXT_COLOR[1], Brand.BODY_TEXT_COLOR[2], Brand.BODY_TEXT_COLOR[3])
         nameFs:SetPoint("TOPLEFT", card, "TOPLEFT", 14, -card.cy)
         nameFs:SetText(m.charName)
         local daysFs = card:CreateFontString(nil, "OVERLAY")
         daysFs:SetFont(Brand.BODY_FONT_PATH, 13, "")
-        daysFs:SetTextColor(0.55, 0.55, 0.55)
+        daysFs:SetTextColor(Brand.DESC_COLOR[1], Brand.DESC_COLOR[2], Brand.DESC_COLOR[3])
         daysFs:SetPoint("LEFT", nameFs, "RIGHT", 12, 0)
         daysFs:SetText(m.days .. " days")
         local checkBtn = Brand.MakeTextLink(card, "Check in", function()
@@ -560,12 +560,12 @@ local function BuildOfficerToolCards(body, W, y, guild)
         if R:IsUntouched(m) then unsorted = unsorted + 1 end
     end
     local line1 = Brand.BodyFS(card, noNote .. " member" .. (noNote == 1 and " has" or "s have") .. " no public note", 14)
-    line1:SetTextColor(0.8, 0.8, 0.85)
+    line1:SetTextColor(Brand.BODY_TEXT_COLOR[1], Brand.BODY_TEXT_COLOR[2], Brand.BODY_TEXT_COLOR[3])
     line1:SetPoint("TOPLEFT", card, "TOPLEFT", 14, -card.cy)
     card.cy = card.cy + 24
     local line2 = Brand.BodyFS(card, unsorted .. " member" .. (unsorted == 1 and " hasn't" or "s haven't")
         .. " been filled in yet (red asterisk on the Roster page)", 14)
-    line2:SetTextColor(0.8, 0.8, 0.85)
+    line2:SetTextColor(Brand.BODY_TEXT_COLOR[1], Brand.BODY_TEXT_COLOR[2], Brand.BODY_TEXT_COLOR[3])
     line2:SetPoint("TOPLEFT", card, "TOPLEFT", 14, -card.cy)
     card.cy = card.cy + 24
     y = FinishCard(card, y)
@@ -597,7 +597,7 @@ local function BuildOfficerToolCards(body, W, y, guild)
     table.sort(upcoming, function(a, b) return a.days < b.days end)
     if #upcoming == 0 then
         local noneFs = Brand.BodyFS(card, "Nothing in the next " .. UPCOMING_DAYS .. " days.", 13)
-        noneFs:SetTextColor(0.6, 0.6, 0.6)
+        noneFs:SetTextColor(Brand.DESC_COLOR[1], Brand.DESC_COLOR[2], Brand.DESC_COLOR[3])
         noneFs:SetPoint("TOPLEFT", card, "TOPLEFT", 14, -card.cy)
         card.cy = card.cy + 22
     else
@@ -607,7 +607,7 @@ local function BuildOfficerToolCards(body, W, y, guild)
             local when = date("%b %d", time({ year = 2000, month = u.month, day = u.day, hour = 12 }))
             table.insert(postLines, u.text .. " (" .. when .. ")")
             local fs = Brand.BodyFS(card, u.text .. "  |cff777777" .. when .. "|r", 14)
-            fs:SetTextColor(0.8, 0.8, 0.85)
+            fs:SetTextColor(Brand.BODY_TEXT_COLOR[1], Brand.BODY_TEXT_COLOR[2], Brand.BODY_TEXT_COLOR[3])
             fs:SetPoint("TOPLEFT", card, "TOPLEFT", 14, -card.cy)
             card.cy = card.cy + 24
         end
@@ -633,7 +633,7 @@ local function BuildOfficerToolCards(body, W, y, guild)
         end
     end
     local weekFs = Brand.BodyFS(card, joins .. " joined, " .. lefts .. " left, " .. promotes .. " promoted, " .. demotes .. " demoted", 14)
-    weekFs:SetTextColor(0.8, 0.8, 0.85)
+    weekFs:SetTextColor(Brand.BODY_TEXT_COLOR[1], Brand.BODY_TEXT_COLOR[2], Brand.BODY_TEXT_COLOR[3])
     weekFs:SetPoint("TOPLEFT", card, "TOPLEFT", 14, -card.cy)
     card.cy = card.cy + 24
     y = FinishCard(card, y)
@@ -656,7 +656,7 @@ local function BuildOfficerToolCards(body, W, y, guild)
     card.cy = card.cy + 22
     if status.lastFrom then
         local lastFs = Brand.BodyFS(card, "Last update from " .. status.lastFrom .. ", " .. AgoText(status.lastAt), 12)
-        lastFs:SetTextColor(0.55, 0.55, 0.55)
+        lastFs:SetTextColor(Brand.DESC_COLOR[1], Brand.DESC_COLOR[2], Brand.DESC_COLOR[3])
         lastFs:SetPoint("TOPLEFT", card, "TOPLEFT", 14, -card.cy)
         card.cy = card.cy + 20
     end
@@ -684,7 +684,7 @@ local function BuildOfficerToolCards(body, W, y, guild)
     card.cy = card.cy + 26
     local note = Brand.BodyFS(card,
         "Edits to notes, nicknames, mains and alts, professions, birthdays, dates and strikes are shared automatically with other officers who are online, over officer chat. Backup is for moving them to another account.", 12)
-    note:SetTextColor(0.55, 0.55, 0.55)
+    note:SetTextColor(Brand.DESC_COLOR[1], Brand.DESC_COLOR[2], Brand.DESC_COLOR[3])
     note:SetPoint("TOPLEFT", card, "TOPLEFT", 14, -card.cy)
     note:SetWidth(W - 28)
     note:SetJustifyH("LEFT")
@@ -724,7 +724,7 @@ local function BuildOfficerSettingsPage(content, guild, isGM)
         if rank.order > 1 then
             anyRank = true
             local nameFs = Brand.BodyFS(card, rank.name, 14)
-            nameFs:SetTextColor(0.8, 0.8, 0.85)
+            nameFs:SetTextColor(Brand.BODY_TEXT_COLOR[1], Brand.BODY_TEXT_COLOR[2], Brand.BODY_TEXT_COLOR[3])
             nameFs:SetPoint("TOPLEFT", card, "TOPLEFT", 14, -card.cy - 3)
             local current = (guild.promotionRules and guild.promotionRules[rank.order]) or 0
             local unitFs
@@ -740,20 +740,20 @@ local function BuildOfficerSettingsPage(content, guild, isGM)
                     .. ", then ready for " .. (nameByOrder[rank.order - 1] or "?"), 13)
                 unitFs:SetPoint("TOPLEFT", card, "TOPLEFT", 170, -card.cy - 3)
             end
-            unitFs:SetTextColor(0.6, 0.6, 0.6)
+            unitFs:SetTextColor(Brand.DESC_COLOR[1], Brand.DESC_COLOR[2], Brand.DESC_COLOR[3])
             card.cy = card.cy + 28
         end
     end
     if not anyRank then
         local none = Brand.BodyFS(card, "No ranks found yet - open the roster once to sync.", 13)
-        none:SetTextColor(0.6, 0.6, 0.6)
+        none:SetTextColor(Brand.DESC_COLOR[1], Brand.DESC_COLOR[2], Brand.DESC_COLOR[3])
         none:SetPoint("TOPLEFT", card, "TOPLEFT", 14, -card.cy)
         card.cy = card.cy + 24
     end
     local ruleNote = Brand.BodyFS(card, canEditRules
         and "0 turns a rank off. Officers get these through sync."
         or "Set by the Guild Master and shared with you through sync.", 12)
-    ruleNote:SetTextColor(0.55, 0.55, 0.55)
+    ruleNote:SetTextColor(Brand.DESC_COLOR[1], Brand.DESC_COLOR[2], Brand.DESC_COLOR[3])
     ruleNote:SetPoint("TOPLEFT", card, "TOPLEFT", 14, -card.cy)
     card.cy = card.cy + 22
     y = FinishCard(card, y)
@@ -772,7 +772,7 @@ local function BuildOfficerSettingsPage(content, guild, isGM)
         if userInput then db.checkInMessage = text end
     end)
     local checkNote = Brand.BodyFS(card, "Sent by the Check in link on Inactive Members. {player} and {guild} are filled in.", 12)
-    checkNote:SetTextColor(0.55, 0.55, 0.55)
+    checkNote:SetTextColor(Brand.DESC_COLOR[1], Brand.DESC_COLOR[2], Brand.DESC_COLOR[3])
     checkNote:SetPoint("TOPLEFT", card, "TOPLEFT", 14, -card.cy)
     card.cy = card.cy + 22
     y = FinishCard(card, y)
@@ -784,7 +784,7 @@ local function BuildOfficerSettingsPage(content, guild, isGM)
     end)
     inBox:SetPoint("TOPLEFT", card, "TOPLEFT", 16, -card.cy)
     local inLbl = Brand.BodyFS(card, "days offline counts as inactive (also how long away before a return is logged)", 13)
-    inLbl:SetTextColor(0.6, 0.6, 0.6)
+    inLbl:SetTextColor(Brand.DESC_COLOR[1], Brand.DESC_COLOR[2], Brand.DESC_COLOR[3])
     inLbl:SetPoint("LEFT", inBox, "RIGHT", 8, 0)
     card.cy = card.cy + 30
     y = FinishCard(card, y)
@@ -893,7 +893,7 @@ local function BuildGuildMasterBody(content, guild, showBanList)
         card.cy = card.cy + 26
     else
         local noneFs = Brand.BodyFS(card, "The Guild Master hasn't set a Discord link yet.", 13)
-        noneFs:SetTextColor(0.6, 0.6, 0.6)
+        noneFs:SetTextColor(Brand.DESC_COLOR[1], Brand.DESC_COLOR[2], Brand.DESC_COLOR[3])
         noneFs:SetPoint("TOPLEFT", card, "TOPLEFT", 14, -card.cy)
         card.cy = card.cy + 22
     end
@@ -926,7 +926,7 @@ local function BuildGuildMasterBody(content, guild, showBanList)
         local m = unreviewed[i]
         local nameFs = card:CreateFontString(nil, "OVERLAY")
         nameFs:SetFont(Brand.BODY_FONT_PATH, 14, "")
-        nameFs:SetTextColor(0.9, 0.9, 0.9)
+        nameFs:SetTextColor(Brand.BODY_TEXT_COLOR[1], Brand.BODY_TEXT_COLOR[2], Brand.BODY_TEXT_COLOR[3])
         nameFs:SetPoint("TOPLEFT", card, "TOPLEFT", 14, -card.cy)
         nameFs:SetText(m.charName)
 
@@ -957,7 +957,7 @@ local function BuildGuildMasterBody(content, guild, showBanList)
             local change = rankChanges[i]
             local changeFs = card:CreateFontString(nil, "OVERLAY")
             changeFs:SetFont(Brand.BODY_FONT_PATH, 13, "")
-            changeFs:SetTextColor(0.85, 0.85, 0.85)
+            changeFs:SetTextColor(Brand.BODY_TEXT_COLOR[1], Brand.BODY_TEXT_COLOR[2], Brand.BODY_TEXT_COLOR[3])
             changeFs:SetPoint("TOPLEFT", card, "TOPLEFT", 14, -card.cy)
             changeFs:SetWidth(W - 28)
             changeFs:SetJustifyH("LEFT")
@@ -994,7 +994,7 @@ local function BuildGuildMasterBody(content, guild, showBanList)
     if #officers == 0 then
         local noneFs = card:CreateFontString(nil, "OVERLAY")
         noneFs:SetFont(Brand.BODY_FONT_PATH, 13, "")
-        noneFs:SetTextColor(0.6, 0.6, 0.6)
+        noneFs:SetTextColor(Brand.DESC_COLOR[1], Brand.DESC_COLOR[2], Brand.DESC_COLOR[3])
         noneFs:SetPoint("TOPLEFT", card, "TOPLEFT", 14, -card.cy)
         noneFs:SetText("No ranks with officer permissions right now.")
         card.cy = card.cy + 22
@@ -1002,7 +1002,7 @@ local function BuildGuildMasterBody(content, guild, showBanList)
         for _, m in ipairs(officers) do
             local nameFs = card:CreateFontString(nil, "OVERLAY")
             nameFs:SetFont(Brand.BODY_FONT_PATH, 14, "")
-            nameFs:SetTextColor(0.9, 0.9, 0.9)
+            nameFs:SetTextColor(Brand.BODY_TEXT_COLOR[1], Brand.BODY_TEXT_COLOR[2], Brand.BODY_TEXT_COLOR[3])
             nameFs:SetPoint("TOPLEFT", card, "TOPLEFT", 14, -card.cy)
             nameFs:SetText(m.charName .. "  |cff777777(" .. (m.rankName or "?") .. ")|r")
             card.cy = card.cy + 24
@@ -1026,7 +1026,7 @@ local function BuildGuildMasterBody(content, guild, showBanList)
 
         local banIntro = Brand.BodyFS(card,
             "Banning someone doesn't kick them - it flags their name so you're warned if they ever try to rejoin.", 13)
-        banIntro:SetTextColor(0.6, 0.6, 0.6)
+        banIntro:SetTextColor(Brand.DESC_COLOR[1], Brand.DESC_COLOR[2], Brand.DESC_COLOR[3])
         banIntro:SetPoint("TOPLEFT", card, "TOPLEFT", 14, -card.cy)
         banIntro:SetWidth(W - 28)
         banIntro:SetJustifyH("LEFT")
@@ -1086,20 +1086,20 @@ local function BuildGuildMasterBody(content, guild, showBanList)
         local bans = R:GetBans(guild)
         if #bans == 0 then
             local noneFs = Brand.BodyFS(card, "Nobody's banned right now.", 13)
-            noneFs:SetTextColor(0.6, 0.6, 0.6)
+            noneFs:SetTextColor(Brand.DESC_COLOR[1], Brand.DESC_COLOR[2], Brand.DESC_COLOR[3])
             noneFs:SetPoint("TOPLEFT", card, "TOPLEFT", 14, -card.cy)
             card.cy = card.cy + 22
         else
             for _, ban in ipairs(bans) do
                 local nameFs = card:CreateFontString(nil, "OVERLAY")
                 nameFs:SetFont(Brand.BODY_FONT_PATH, 14, "")
-                nameFs:SetTextColor(0.9, 0.9, 0.9)
+                nameFs:SetTextColor(Brand.BODY_TEXT_COLOR[1], Brand.BODY_TEXT_COLOR[2], Brand.BODY_TEXT_COLOR[3])
                 nameFs:SetPoint("TOPLEFT", card, "TOPLEFT", 14, -card.cy)
                 nameFs:SetText(ban.charName)
 
                 local metaFs = card:CreateFontString(nil, "OVERLAY")
                 metaFs:SetFont(Brand.BODY_FONT_PATH, 12, "")
-                metaFs:SetTextColor(0.55, 0.55, 0.55)
+                metaFs:SetTextColor(Brand.DESC_COLOR[1], Brand.DESC_COLOR[2], Brand.DESC_COLOR[3])
                 metaFs:SetPoint("LEFT", nameFs, "RIGHT", 10, 0)
                 local reasonText = (ban.reason and ban.reason ~= "") and (ban.reason .. " - ") or ""
                 metaFs:SetText(reasonText .. "banned " .. R.FormatDate(ban.bannedAt) .. " by " .. ban.bannedBy)
@@ -1163,7 +1163,7 @@ local function BuildGuildMaster(content)
     if not guild then
         local msg = content:CreateFontString(nil, "OVERLAY")
         msg:SetFont(Brand.BODY_FONT_PATH, 15, "")
-        msg:SetTextColor(0.85, 0.85, 0.85)
+        msg:SetTextColor(Brand.BODY_TEXT_COLOR[1], Brand.BODY_TEXT_COLOR[2], Brand.BODY_TEXT_COLOR[3])
         msg:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -46)
         msg:SetWidth(CONTENT_W)
         msg:SetWordWrap(true)
@@ -1174,7 +1174,7 @@ local function BuildGuildMaster(content)
     if not R:HasGMEditAccess(guild) then
         local msg = content:CreateFontString(nil, "OVERLAY")
         msg:SetFont(Brand.BODY_FONT_PATH, 15, "")
-        msg:SetTextColor(0.85, 0.85, 0.85)
+        msg:SetTextColor(Brand.BODY_TEXT_COLOR[1], Brand.BODY_TEXT_COLOR[2], Brand.BODY_TEXT_COLOR[3])
         msg:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -46)
         msg:SetWidth(CONTENT_W)
         msg:SetJustifyH("LEFT")
@@ -1211,7 +1211,7 @@ local function BuildOfficer(content)
     if not guild then
         local msg = content:CreateFontString(nil, "OVERLAY")
         msg:SetFont(Brand.BODY_FONT_PATH, 15, "")
-        msg:SetTextColor(0.85, 0.85, 0.85)
+        msg:SetTextColor(Brand.BODY_TEXT_COLOR[1], Brand.BODY_TEXT_COLOR[2], Brand.BODY_TEXT_COLOR[3])
         msg:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -46)
         msg:SetWidth(CONTENT_W)
         msg:SetWordWrap(true)
@@ -1222,7 +1222,7 @@ local function BuildOfficer(content)
     if not R:HasOfficerAccess(guild) then
         local msg = content:CreateFontString(nil, "OVERLAY")
         msg:SetFont(Brand.BODY_FONT_PATH, 15, "")
-        msg:SetTextColor(0.85, 0.85, 0.85)
+        msg:SetTextColor(Brand.BODY_TEXT_COLOR[1], Brand.BODY_TEXT_COLOR[2], Brand.BODY_TEXT_COLOR[3])
         msg:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -46)
         msg:SetWidth(CONTENT_W)
         msg:SetJustifyH("LEFT")
@@ -1257,7 +1257,7 @@ local function BuildDisplay(content)
     -- Color/opacity changes rebuild the window immediately (2026-09-20),
     -- no /reload needed.
     local note = Brand.BodyFS(content, "Changes apply immediately.", 13)
-    note:SetTextColor(0.6, 0.6, 0.6)
+    note:SetTextColor(Brand.DESC_COLOR[1], Brand.DESC_COLOR[2], Brand.DESC_COLOR[3])
     note:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -44)
 
     -- One card per setting, inside a scrolling body so a short window never
@@ -1281,7 +1281,32 @@ local function BuildDisplay(content)
     -- immediately inline - the button doing the rebuilding is itself a
     -- child of the frame Rebuild() is about to hide/destroy, so letting
     -- this OnClick handler fully return first is the safe order.
-    local card = NewCard(body, y, W, "Accent Color")
+    -- Skins: a palette for every window. Picking one drops any custom
+    -- accent/background pick below, so the skin shows exactly as designed.
+    local Skins = Brand.GetSkins()
+    local card
+    if Skins then
+        card = NewCard(body, y, W, "Skin")
+        local COLS, GAP, BTN_H = 2, 8, 26
+        local btnW = math.floor((W - 32 - GAP * (COLS - 1)) / COLS)
+        local rows = math.ceil(#Skins.ORDER / COLS)
+        for i, key in ipairs(Skins.ORDER) do
+            local col, row = (i - 1) % COLS, math.floor((i - 1) / COLS)
+            local btn = Brand.MakeButton(card, Skins.LABELS[key], btnW, BTN_H, function()
+                if key == Brand.skinKey and not XRR_DB.accentColor and not XRR_DB.bgColor then return end
+                XRR_DB.skin = key
+                XRR_DB.accentColor, XRR_DB.bgColor = nil, nil
+                Brand.ApplySkin(key)
+                C_Timer.After(0, function() O:Rebuild() end)
+            end)
+            btn:SetPoint("TOPLEFT", card, "TOPLEFT", 16 + col * (btnW + GAP), -(card.cy + row * (BTN_H + GAP)))
+            btn:SetSelected(key == Brand.skinKey)
+        end
+        card.cy = card.cy + rows * (BTN_H + GAP)
+        y = FinishCard(card, y)
+    end
+
+    card = NewCard(body, y, W, "Accent Color")
     local accentSwatch = AddColorSwatch(card, Brand.ACCENT, "TOPLEFT", card, "TOPLEFT", 16, -card.cy, function(r, g, b)
         XRR_DB.accentColor = { r, g, b }
         C_Timer.After(0, function() O:Rebuild() end)
@@ -1423,7 +1448,7 @@ local function AppLinkBtn(parent, text, r, g, bColor, onClick)
     label:SetTextColor(r, g, bColor, 1)
     btn.label = label
     btn:SetWidth(label:GetStringWidth())
-    btn:SetScript("OnEnter", function() label:SetTextColor(1, 1, 1, 1) end)
+    btn:SetScript("OnEnter", function() label:SetTextColor(Brand.HOVER_COLOR[1], Brand.HOVER_COLOR[2], Brand.HOVER_COLOR[3]) end)
     btn:SetScript("OnLeave", function() label:SetTextColor(r, g, bColor, 1) end)
     btn:SetScript("OnClick", onClick)
     return btn
@@ -1448,7 +1473,7 @@ local function BuildApplicationCard(parent, entry, y, width)
 
     local level = card:CreateFontString(nil, "OVERLAY")
     level:SetFont(Brand.BODY_FONT_PATH, 12, "")
-    level:SetTextColor(0.7, 0.7, 0.7)
+    level:SetTextColor(Brand.DESC_COLOR[1], Brand.DESC_COLOR[2], Brand.DESC_COLOR[3])
     level:SetPoint("LEFT", name, "RIGHT", 8, 0)
     level:SetText("Lvl " .. entry.level .. " " .. XRR.Applications.ClassName(entry.classID))
 
@@ -1458,13 +1483,13 @@ local function BuildApplicationCard(parent, entry, y, width)
     -- it was submitted.
     local applied = card:CreateFontString(nil, "OVERLAY")
     applied:SetFont(Brand.BODY_FONT_PATH, 11, "")
-    applied:SetTextColor(0.55, 0.55, 0.55)
+    applied:SetTextColor(Brand.DESC_COLOR[1], Brand.DESC_COLOR[2], Brand.DESC_COLOR[3])
     applied:SetPoint("LEFT", level, "RIGHT", 8, 0)
     applied:SetText(XRR.Applications.TimeAgo(entry.lastUpdatedTime))
 
     local note = card:CreateFontString(nil, "OVERLAY")
     note:SetFont(Brand.BODY_FONT_PATH, 12, "")
-    note:SetTextColor(0.75, 0.75, 0.75)
+    note:SetTextColor(Brand.BODY_TEXT_COLOR[1], Brand.BODY_TEXT_COLOR[2], Brand.BODY_TEXT_COLOR[3])
     note:SetPoint("TOPLEFT", card, "TOPLEFT", 10, -32)
     note:SetWidth(width - 20)
     note:SetJustifyH("LEFT")
@@ -1610,7 +1635,7 @@ local function BuildApplications(content)
     if #pending == 0 then
         local msg = body:CreateFontString(nil, "OVERLAY")
         msg:SetFont(Brand.BODY_FONT_PATH, 15, "")
-        msg:SetTextColor(0.6, 0.6, 0.6)
+        msg:SetTextColor(Brand.DESC_COLOR[1], Brand.DESC_COLOR[2], Brand.DESC_COLOR[3])
         msg:SetPoint("TOPLEFT", body, "TOPLEFT", 4, -y)
         msg:SetWidth(CONTENT_W)
         msg:SetWordWrap(true)
@@ -1707,7 +1732,7 @@ local function BuildText(content)
     Brand.DrawDivider(content, 0, 30, CONTENT_W)
 
     local note = Brand.BodyFS(content, "Changes apply immediately. Applies to body text (labels, roster names, descriptions) - not the branded window titles.", 13)
-    note:SetTextColor(0.6, 0.6, 0.6)
+    note:SetTextColor(Brand.DESC_COLOR[1], Brand.DESC_COLOR[2], Brand.DESC_COLOR[3])
     note:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -44)
     note:SetWidth(CONTENT_W)
     note:SetWordWrap(true)
@@ -1879,7 +1904,7 @@ local function BuildRoster(content)
     if not guild then
         local msg = content:CreateFontString(nil, "OVERLAY")
         msg:SetFont(Brand.BODY_FONT_PATH, 15, "")
-        msg:SetTextColor(0.85, 0.85, 0.85)
+        msg:SetTextColor(Brand.BODY_TEXT_COLOR[1], Brand.BODY_TEXT_COLOR[2], Brand.BODY_TEXT_COLOR[3])
         msg:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -46)
         msg:SetWidth(CONTENT_W)
         msg:SetWordWrap(true)
@@ -1944,6 +1969,52 @@ local function LogDayLabel(epoch)
     return date("%b %d", epoch)
 end
 
+-- A larger, scrolling box to copy a block of text from (the log export).
+local textBlock
+local function ShowTextBlock(caption, text)
+    if not textBlock then
+        local f = CreateFrame("Frame", "XRRTextBlock", UIParent, "BackdropTemplate")
+        f:SetSize(560, 360)
+        f:SetPoint("CENTER", UIParent, "CENTER", 0, 40)
+        f:SetFrameStrata("FULLSCREEN_DIALOG")
+        f:SetToplevel(true)
+        f:EnableMouse(true)
+        table.insert(UISpecialFrames, "XRRTextBlock")
+        Brand.ApplyBackground(f)
+        Brand.DrawBorder(f, 1)
+        f.caption = Brand.FS(f, "", Brand.TITLE_FONT_PATH, 15, "", Brand.ACCENT[1], Brand.ACCENT[2], Brand.ACCENT[3])
+        f.caption:SetPoint("TOP", f, "TOP", 0, -14)
+
+        local sf = CreateFrame("ScrollFrame", "XRRTextBlockScroll", f, "UIPanelScrollFrameTemplate")
+        sf:SetPoint("TOPLEFT", f, "TOPLEFT", 16, -44)
+        sf:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -34, 44)
+        local eb = CreateFrame("EditBox", nil, sf)
+        eb:SetMultiLine(true)
+        eb:SetFontObject("GameFontHighlightSmall")
+        eb:SetWidth(500)
+        eb:SetAutoFocus(false)
+        eb:SetMaxLetters(0)
+        sf:SetScrollChild(eb)
+        eb:SetScript("OnEscapePressed", function() f:Hide() end)
+        -- Read-only: any edit puts the text straight back.
+        eb:SetScript("OnTextChanged", function(self)
+            if f.lockedText and self:GetText() ~= f.lockedText then self:SetText(f.lockedText) end
+        end)
+        f.box = eb
+
+        local hint = Brand.FS(f, "Click in the box, Ctrl+A, then Ctrl+C. Paste it into a spreadsheet.",
+            Brand.BODY_FONT_PATH, 11, "", Brand.DESC_COLOR[1], Brand.DESC_COLOR[2], Brand.DESC_COLOR[3])
+        hint:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 16, 16)
+        local close = Brand.MakeTextLink(f, "Close", function() f:Hide() end)
+        close:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -16, 12)
+        textBlock = f
+    end
+    textBlock.caption:SetText(caption)
+    textBlock.lockedText = text
+    textBlock.box:SetText(text)
+    textBlock:Show()
+end
+
 local function BuildLog(content)
     local guild = R:GetCurrentGuild()
 
@@ -1960,6 +2031,15 @@ local function BuildLog(content)
         -- GM-only (2026-09-22) - same trust-call reasoning as the Ban List,
         -- not a real Blizzard permission, just not something every officer
         -- should be able to do to shared local history.
+        local exportLogBtn = Brand.MakeTextLink(content, "Export", function()
+            local lines = { "Date\tCategory\tEntry" }
+            for _, e in ipairs(R:GetLog(guild)) do
+                table.insert(lines, date("%Y-%m-%d %H:%M", e.time or 0) .. "\t" .. tostring(e.category) .. "\t" .. tostring(e.text))
+            end
+            ShowTextBlock("Export log", table.concat(lines, "\n"))
+        end)
+        exportLogBtn:SetPoint("TOPRIGHT", content, "TOPRIGHT", -78, -2)
+
         if R:HasGMEditAccess(guild) then
             local clearLogBtn = Brand.MakeTextLink(content, "Clear Log", function()
                 R:ClearLog(guild)
@@ -1974,7 +2054,7 @@ local function BuildLog(content)
     if not guild then
         local msg = content:CreateFontString(nil, "OVERLAY")
         msg:SetFont(Brand.BODY_FONT_PATH, 15, "")
-        msg:SetTextColor(0.85, 0.85, 0.85)
+        msg:SetTextColor(Brand.BODY_TEXT_COLOR[1], Brand.BODY_TEXT_COLOR[2], Brand.BODY_TEXT_COLOR[3])
         msg:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -46)
         msg:SetWidth(CONTENT_W)
         msg:SetWordWrap(true)
@@ -1998,7 +2078,7 @@ local function BuildLog(content)
     searchBox:SetText(logSearchText)
     local searchPlaceholder = searchBox:CreateFontString(nil, "OVERLAY")
     searchPlaceholder:SetFont(Brand.BODY_FONT_PATH, 12, "")
-    searchPlaceholder:SetTextColor(0.5, 0.5, 0.5)
+    searchPlaceholder:SetTextColor(Brand.DESC_COLOR[1], Brand.DESC_COLOR[2], Brand.DESC_COLOR[3])
     searchPlaceholder:SetPoint("LEFT", searchBox, "LEFT", 4, 0)
     searchPlaceholder:SetText("Search log...")
     searchPlaceholder:SetShown(logSearchText == "")
@@ -2016,7 +2096,9 @@ local function BuildLog(content)
     -- Filter chips: green while on, red while off.
     local GREEN = { 0.18, 0.72, 0.30 }
     local RED = { 0.75, 0.19, 0.19 }
-    local prevChip = searchBox
+    local chips = {}
+    local chipsTotal = 0
+    local CHIP_GAP = 12
     for _, category in ipairs(LOG_FILTER_ORDER) do
         local chip = Brand.MakeTextLink(filterCard, LOG_FILTER_LABELS[category], function()
             logActiveFilters[category] = not logActiveFilters[category]
@@ -2027,11 +2109,42 @@ local function BuildLog(content)
         -- MakeTextLink fades back to the accent color on mouse-out; keep the
         -- on/off color instead.
         chip:SetScript("OnLeave", function() chip.label:SetTextColor(c[1], c[2], c[3], 1) end)
-        chip:SetPoint("LEFT", prevChip, "RIGHT", 12, 0)
-        prevChip = chip
+        chips[#chips + 1] = chip
+        chipsTotal = chipsTotal + chip:GetWidth() + CHIP_GAP
     end
 
-    local LOG_TOP = 92
+    -- Sized from the real chip widths so nothing ever runs past the card: the
+    -- search box takes whatever room is left on one row (down to a minimum),
+    -- and when the chips need more than that they drop to their own row(s).
+    local PAD = 14
+    local avail = (CONTENT_W - 4) - PAD * 2
+    local searchW = avail - chipsTotal
+    local filterH = 40
+    if searchW >= 110 then
+        searchBox:SetWidth(math.min(200, searchW))
+        local prevChip = searchBox
+        for _, chip in ipairs(chips) do
+            chip:SetPoint("LEFT", prevChip, "RIGHT", CHIP_GAP, 0)
+            prevChip = chip
+        end
+    else
+        searchBox:SetWidth(math.min(200, avail))
+        searchBox:ClearAllPoints()
+        searchBox:SetPoint("TOPLEFT", filterCard, "TOPLEFT", PAD, -10)
+        local x, row = 0, 0
+        for _, chip in ipairs(chips) do
+            local w = chip:GetWidth()
+            if x > 0 and x + w > avail then
+                x, row = 0, row + 1
+            end
+            chip:SetPoint("TOPLEFT", filterCard, "TOPLEFT", PAD + x, -(40 + row * 22))
+            x = x + w + CHIP_GAP
+        end
+        filterH = 40 + (row + 1) * 22 + 4
+    end
+    filterCard:SetHeight(filterH)
+
+    local LOG_TOP = 42 + filterH + 10
     local LOG_BOTTOM_CLEARANCE = 40
     local viewportHeight = content:GetHeight() - LOG_TOP - LOG_BOTTOM_CLEARANCE
 
@@ -2089,6 +2202,43 @@ local function BuildLog(content)
         showAwayCard = false
     end
 
+    -- Summary: how many joined and left lately, and who left most recently
+    -- with when they joined and the rank they held.
+    do
+        local nowT = time()
+        local j7, j30, l7, l30 = 0, 0, 0, 0
+        for _, e in ipairs(guild.log or {}) do
+            local age = nowT - (e.time or 0)
+            if e.category == "join" then
+                if age <= 30 * 86400 then j30 = j30 + 1 end
+                if age <= 7 * 86400 then j7 = j7 + 1 end
+            elseif e.category == "left" then
+                if age <= 30 * 86400 then l30 = l30 + 1 end
+                if age <= 7 * 86400 then l7 = l7 + 1 end
+            end
+        end
+        local sumCard = NewCard(body, y, W, "Summary")
+        local sumFs = GreyFS(sumCard, ("Last 7 days:  %d joined, %d left        Last 30 days:  %d joined, %d left"):format(j7, l7, j30, l30), 13)
+        sumFs:SetPoint("TOPLEFT", sumCard, "TOPLEFT", 14, -sumCard.cy)
+        sumCard.cy = sumCard.cy + 26
+        local leavers = guild.leavers or {}
+        if #leavers > 0 then
+            local lh = AccentFS(sumCard, "Recently left", 12)
+            lh:SetPoint("TOPLEFT", sumCard, "TOPLEFT", 14, -sumCard.cy)
+            sumCard.cy = sumCard.cy + 20
+            for i = 1, math.min(6, #leavers) do
+                local l = leavers[i]
+                local joined = l.joinedAt and date("%b %d", l.joinedAt) or "unknown"
+                local txt = ("%s  -  %s  -  joined %s, left %s"):format(l.name, l.rank or "no rank", joined, date("%b %d", l.leftAt or 0))
+                local fs = GreyFS(sumCard, txt, 13)
+                fs:SetPoint("TOPLEFT", sumCard, "TOPLEFT", 14, -sumCard.cy)
+                sumCard.cy = sumCard.cy + 20
+            end
+            sumCard.cy = sumCard.cy + 4
+        end
+        y = FinishCard(sumCard, y)
+    end
+
     -- One card per day, newest first (R:GetLog is already newest first).
     local groups, order = {}, {}
     for _, entry in ipairs(R:GetLog(guild)) do
@@ -2143,7 +2293,7 @@ local function BuildLog(content)
 
             local timeFs = card:CreateFontString(nil, "OVERLAY")
             timeFs:SetFont(Brand.BODY_FONT_PATH, 12, "")
-            timeFs:SetTextColor(0.45, 0.45, 0.45)
+            timeFs:SetTextColor(Brand.DESC_COLOR[1], Brand.DESC_COLOR[2], Brand.DESC_COLOR[3])
             timeFs:SetPoint("TOPRIGHT", card, "TOPRIGHT", -12, -card.cy)
             timeFs:SetJustifyH("RIGHT")
             timeFs:SetText(LogTimeText(entry.time))
@@ -2191,7 +2341,7 @@ local function BuildLog(content)
 
     local footer = content:CreateFontString(nil, "OVERLAY")
     footer:SetFont(Brand.BODY_FONT_PATH, 12, "")
-    footer:SetTextColor(0.5, 0.5, 0.5)
+    footer:SetTextColor(Brand.DESC_COLOR[1], Brand.DESC_COLOR[2], Brand.DESC_COLOR[3])
     footer:SetPoint("BOTTOMLEFT", content, "BOTTOMLEFT", 4, 8)
     footer:SetText("Total Entries: " .. #R:GetLog(guild))
 end
@@ -2219,7 +2369,7 @@ local function BuildMainsAlts(content)
     if not guild then
         local msg = content:CreateFontString(nil, "OVERLAY")
         msg:SetFont(Brand.BODY_FONT_PATH, 15, "")
-        msg:SetTextColor(0.85, 0.85, 0.85)
+        msg:SetTextColor(Brand.BODY_TEXT_COLOR[1], Brand.BODY_TEXT_COLOR[2], Brand.BODY_TEXT_COLOR[3])
         msg:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -46)
         msg:SetWidth(CONTENT_W)
         msg:SetWordWrap(true)
@@ -2300,7 +2450,7 @@ local function BuildMainsAlts(content)
                 toggle:SetHeight(18)
                 local toggleFs = toggle:CreateFontString(nil, "OVERLAY")
                 toggleFs:SetFont(Brand.BODY_FONT_PATH, 13, "")
-                toggleFs:SetTextColor(0.8, 0.8, 0.8)
+                toggleFs:SetTextColor(Brand.BODY_TEXT_COLOR[1], Brand.BODY_TEXT_COLOR[2], Brand.BODY_TEXT_COLOR[3])
                 toggleFs:SetPoint("LEFT", 0, 0)
                 toggleFs:SetText((expandedAlts[main.charName] and "v " or "> ") .. #alts .. " alt" .. (#alts == 1 and "" or "s"))
                 toggle:SetWidth(toggleFs:GetStringWidth())
@@ -2340,7 +2490,7 @@ local function BuildMainsAlts(content)
                 chip:SetHeight(18)
                 local chipFs = chip:CreateFontString(nil, "OVERLAY")
                 chipFs:SetFont(Brand.BODY_FONT_PATH, 13, "")
-                chipFs:SetTextColor(0.54, 0.54, 0.63)
+                chipFs:SetTextColor(Brand.DESC_COLOR[1], Brand.DESC_COLOR[2], Brand.DESC_COLOR[3])
                 chipFs:SetPoint("LEFT", 0, 0)
                 chipFs:SetText(alt.charName)
                 local chipW = chipFs:GetStringWidth()
@@ -2352,7 +2502,7 @@ local function BuildMainsAlts(content)
                 chip:SetPoint("TOPLEFT", card, "TOPLEFT", ax, -ay)
                 ax = ax + chipW + 16
                 chip:SetScript("OnEnter", function() chipFs:SetTextColor(0.2, 1, 0.2) end)
-                chip:SetScript("OnLeave", function() chipFs:SetTextColor(0.54, 0.54, 0.63) end)
+                chip:SetScript("OnLeave", function() chipFs:SetTextColor(Brand.DESC_COLOR[1], Brand.DESC_COLOR[2], Brand.DESC_COLOR[3]) end)
                 chip:SetScript("OnClick", function(self)
                     Brand.ShowContextMenu(self, { {
                         text = "Unlink",
@@ -2462,7 +2612,7 @@ end
 -- like the quest list in Quest Compass. The row you were on is remembered
 -- across the page redrawing itself.
 local ROW_H = 27
-local rowIndex = { scan = 1, sent = 1, blacklist = 1, ads = 1 }
+local rowIndex = { scan = 1, sent = 1, blacklist = 1, ads = 1, replies = 1 }
 
 local function MakeRowScroller(card, key, x, y, width, items, buildRow, onRightClick, emptyText)
     local viewport = CreateFrame("Frame", nil, card)
@@ -2829,6 +2979,61 @@ local function BuildRecruitSearch(body, width)
     nextCard.cy = 56 + ROW_H + 4 + 34
     y = FinishCard(nextCard, y)
 
+    -- Replies card ----------------------------------------------------------
+    -- Everyone who answered a whisper, newest first, so nobody who wrote back
+    -- gets lost in the Sent list. Inviting is the game's own right-click on
+    -- their name in chat (Invite to Guild).
+    local replies = {}
+    for _, e in ipairs(sent) do
+        if e.reply then table.insert(replies, e) end
+    end
+    table.sort(replies, function(a, b) return (a.replyAt or 0) > (b.replyAt or 0) end)
+    local repCard = NewCard(body, y, width, nil)
+    local repTitle = AccentFS(repCard, "Replies", 13)
+    repTitle:SetPoint("TOPLEFT", repCard, "TOPLEFT", 10, -10)
+    local repHint = GreyFS(repCard, "To invite: right-click their name in chat > Invite to Guild", 12)
+    repHint:SetPoint("LEFT", repTitle, "RIGHT", 14, 0)
+    Brand.DrawDivider(repCard, 10, 32, width - 20)
+    MakeRowScroller(repCard, "replies", 10, 40, width - 20, replies, function(rowFrame, entry)
+        if not rowFrame.nameFs then
+            rowFrame.nameFs = GreyFS(rowFrame, "", 13)
+            rowFrame.nameFs:SetPoint("LEFT", rowFrame, "LEFT", 6, 0)
+            rowFrame.replyFs = GreyFS(rowFrame, "", 13)
+            rowFrame.replyFs:SetPoint("LEFT", rowFrame, "LEFT", 150, 0)
+            rowFrame.replyFs:SetPoint("RIGHT", rowFrame, "RIGHT", -6, 0)
+            rowFrame.replyFs:SetJustifyH("LEFT")
+            rowFrame.replyFs:SetWordWrap(false)
+        end
+        local r, g, b = ClassColor(entry)
+        rowFrame.nameFs:SetTextColor(r, g, b)
+        rowFrame.nameFs:SetText(entry.charName or "")
+        rowFrame.replyFs:SetText(entry.reply or "")
+    end, function(entry, anchor)
+        Brand.ShowContextMenu(anchor, {
+            { text = "Copy name", onClick = function()
+                ShowTextPopup({
+                    caption = "Copy name", readOnly = true, text = entry.fullName or entry.charName,
+                    hint = "Ctrl+C to copy.", primary = "Close",
+                })
+            end },
+            { text = "Re-whisper", onClick = function()
+                local ok, reason = Rec:Rewhisper(entry.charName)
+                if not ok and reason then RecSay("Couldn't whisper " .. entry.charName .. ": " .. reason .. ".") end
+                O:RefreshCurrentSection()
+            end },
+            { text = "Blacklist", onClick = function()
+                Rec:BlacklistSent(entry.charName)
+                O:RefreshCurrentSection()
+            end },
+            { text = "Remove from card", onClick = function()
+                Rec:RemoveFromSent(entry.charName)
+                O:RefreshCurrentSection()
+            end },
+        })
+    end, "No replies yet.")
+    repCard.cy = 40 + ROW_H
+    y = FinishCard(repCard, y)
+
     -- Blacklist card ------------------------------------------------------
     local blCard = NewCard(body, y, width, nil)
     local blTitle = AccentFS(blCard, "Blacklist", 13)
@@ -2950,7 +3155,7 @@ local function CheckGrid(card, y, width, items, cols, isChecked, onToggle)
     for i, item in ipairs(items) do
         local col = (i - 1) % cols
         local row = math.floor((i - 1) / cols)
-        CheckRow(card, 10 + col * colW, y + row * 24, item.name, isChecked(item.name),
+        CheckRow(card, 10 + col * colW, y + row * 24, item.label or item.name, isChecked(item.name),
             function(on) onToggle(item.name, on) end, item.r, item.g, item.b)
     end
     return y + math.ceil(#items / cols) * 24
@@ -3041,14 +3246,25 @@ local function BuildRecruitSearchSettings(body, width)
     -- Class filter --------------------------------------------------------------
     card = NewCard(body, y, width, "Class Filter")
     local classes = {}
+    -- How many of each class your guild already has, so the gaps are visible.
+    local haveClass = {}
+    local myGuild = R:GetCurrentGuild()
+    if myGuild then
+        for _, m in pairs(myGuild.members) do
+            if m.className then haveClass[m.className] = (haveClass[m.className] or 0) + 1 end
+        end
+    end
     for _, cls in ipairs(Rec:GetClassNames()) do
         local color = RAID_CLASS_COLORS and RAID_CLASS_COLORS[cls.file]
-        table.insert(classes, { name = cls.name, r = color and color.r, g = color and color.g, b = color and color.b })
+        table.insert(classes, {
+            name = cls.name, r = color and color.r, g = color and color.g, b = color and color.b,
+            label = myGuild and (cls.name .. " (" .. (haveClass[cls.name] or 0) .. ")") or cls.name,
+        })
     end
     card.cy = CheckGrid(card, card.cy, width, classes, 4,
         function(name) return db.filterClasses[name] == true end,
         function(name, on) db.filterClasses[name] = on or nil end)
-    card.cy = card.cy + 4 + Note(card, "Only keep these classes. Leave all unchecked for every class.", card.cy + 4, width)
+    card.cy = card.cy + 4 + Note(card, "Only keep these classes. Leave all unchecked for every class. The number is how many of that class your guild already has.", card.cy + 4, width)
     y = FinishCard(card, y)
 
     -- Raider.IO -------------------------------------------------------------------
@@ -3212,10 +3428,20 @@ local function BuildRecruitSearchSettings(body, width)
     card = NewCard(body, y, width, "Recruit Next")
     CheckRow(card, 10, card.cy, "Send a whisper", db.whisperEnabled, function(on) db.whisperEnabled = on end)
     card.cy = card.cy + 24
-    CheckRow(card, 10, card.cy, "Send a guild invite", db.inviteEnabled, function(on) db.inviteEnabled = on end)
+    -- Forever never lets an addon send guild invites, so these two do
+    -- nothing there: people are invited from the game's right-click menu.
+    if not XRR.IsForever then
+        CheckRow(card, 10, card.cy, "Send a guild invite", db.inviteEnabled, function(on) db.inviteEnabled = on end)
+        card.cy = card.cy + 24
+        CheckRow(card, 10, card.cy, "Invite first, then whisper once the invite has gone through", db.inviteFirst,
+            function(on) db.inviteFirst = on end)
+        card.cy = card.cy + 24
+    end
+    CheckRow(card, 10, card.cy, "Pop up the Recruit Replies box when someone answers (/rrreplies)", db.replyBox ~= false,
+        function(on) db.replyBox = on end)
     card.cy = card.cy + 24
-    CheckRow(card, 10, card.cy, "Invite first, then whisper once the invite has gone through", db.inviteFirst,
-        function(on) db.inviteFirst = on end)
+    CheckRow(card, 10, card.cy, "Add unguilded players I see (nameplates, target, mouseover) to the candidates", db.passiveCollect ~= false,
+        function(on) db.passiveCollect = on end)
     card.cy = card.cy + 24
     CheckRow(card, 10, card.cy, "Play a sound when someone you invited joins the guild", db.soundInviteAccepted,
         function(on) db.soundInviteAccepted = on end)
@@ -3689,6 +3915,98 @@ local function BuildRecruitSearchPage(content) BuildRecruitPage(content, "Search
 local function BuildRecruitAdsPage(content) BuildRecruitPage(content, "Ads") end
 local function BuildRecruitStatsPage(content) BuildRecruitPage(content, "Stats") end
 
+-- ── Backup ──────────────────────────────────────────────────────────
+-- Safety copies of the roster data (Backup.lua), plus Export/Import as one
+-- line of text.
+StaticPopupDialogs["XRR_RESTORE_BACKUP"] = {
+    text = "Restore the backup from %s? Your current data is backed up first.",
+    button1 = "Restore",
+    button2 = "Cancel",
+    OnAccept = function(_, index)
+        if XRR.Backup:Restore(index) then
+            print("|cffb84d00Roster Roundup|r backup restored.")
+            O:RefreshCurrentSection()
+        end
+    end,
+    timeout = 0, whileDead = true, hideOnEscape = true,
+}
+
+local function BuildBackup(content)
+    local header = Brand.FS(content, "Backup", Brand.TITLE_FONT_PATH, 24, "OUTLINE",
+        Brand.ACCENT[1], Brand.ACCENT[2], Brand.ACCENT[3])
+    header:SetPoint("TOPLEFT", content, "TOPLEFT", 0, 0)
+    Brand.DrawDivider(content, 0, 30, CONTENT_W)
+
+    local TOP = 44
+    local scrollFrame = CreateFrame("ScrollFrame", nil, content)
+    scrollFrame:SetPoint("TOPLEFT", content, "TOPLEFT", 0, -TOP)
+    scrollFrame:SetSize(CONTENT_W, content:GetHeight() - TOP - 20)
+    local body = CreateFrame("Frame", nil, scrollFrame)
+    body:SetWidth(CONTENT_W)
+    scrollFrame:SetScrollChild(body)
+
+    local W = CONTENT_W - 4
+    local y = 0
+    local Backup = XRR.Backup
+
+    local card = NewCard(body, y, W, "Backups")
+    local nowBtn = Brand.MakeTextLink(card, "Back up now", function()
+        Backup:Create("Manual")
+        O:RefreshCurrentSection()
+    end)
+    nowBtn:SetPoint("TOPRIGHT", card, "TOPRIGHT", -6, -4)
+
+    local list = Backup:GetList()
+    if #list == 0 then
+        local none = GreyFS(card, "No backups yet. One is taken automatically about once a day, or press Back up now.", 13)
+        none:SetPoint("TOPLEFT", card, "TOPLEFT", 10, -card.cy)
+        card.cy = card.cy + 26
+    end
+    for i, b in ipairs(list) do
+        local guilds, members = Backup:Describe(b)
+        local label = ("%s  -  %s  -  %d %s, %d members"):format(
+            date("%b %d, %I:%M %p", b.at or 0), b.label or "Manual", guilds, guilds == 1 and "guild" or "guilds", members)
+        local fs = GreyFS(card, label, 13)
+        fs:SetPoint("TOPLEFT", card, "TOPLEFT", 10, -card.cy - 2)
+        local restore = Brand.MakeTextLink(card, "Restore", function()
+            StaticPopup_Show("XRR_RESTORE_BACKUP", date("%b %d, %I:%M %p", b.at or 0), nil, i)
+        end)
+        restore:SetPoint("TOPRIGHT", card, "TOPRIGHT", -6, -card.cy + 1)
+        card.cy = card.cy + 26
+    end
+    card.cy = card.cy + Note(card,
+        "The last 5 copies are kept. Restoring, or importing, backs up your current data first, so it can always be undone.",
+        card.cy, W) + 4
+    y = FinishCard(card, y)
+
+    card = NewCard(body, y, W, "Export / Import")
+    local exportBtn = Brand.MakeTextLink(card, "Export", function()
+        ShowTextPopup({
+            caption = "Export roster data", readOnly = true, text = Backup:Export(),
+            hint = "Ctrl+C to copy. Paste it into Import on another character, computer, or the other game version.",
+            primary = "Close",
+        })
+    end)
+    exportBtn:SetPoint("TOPLEFT", card, "TOPLEFT", 10, -card.cy)
+    local importBtn = Brand.MakeTextLink(card, "Import", function()
+        ShowTextPopup({
+            caption = "Import roster data", text = "", primary = "Import",
+            hint = "Paste an export here (it starts with !XRR:BK:1:). Replaces what's saved now - a backup is made first.",
+            onPrimary = function(text)
+                local ok, why = Backup:Import(text)
+                if not ok then return false, why end
+                O:RefreshCurrentSection()
+                return true
+            end,
+        })
+    end)
+    importBtn:SetPoint("LEFT", exportBtn, "RIGHT", 24, 0)
+    card.cy = card.cy + 28
+    card.cy = card.cy + Note(card,
+        "Export copies every guild's members, notes, log and bans as one line of text.",
+        card.cy, W) + 4
+    FinishCard(card, y)
+end
 sections["About"] = BuildHome
 sections["Guild Master"] = BuildGuildMaster
 sections["Officer"] = BuildOfficer
@@ -3701,6 +4019,7 @@ sections["Log"] = BuildLog
 sections["Mains / Alts"] = BuildMainsAlts
 sections["Text"] = BuildText
 sections["Display"] = BuildDisplay
+sections["Backup"] = BuildBackup
 
 local activeSection = "Guild Master"
 
@@ -3912,7 +4231,7 @@ local function CreateFramework()
     -- landing page anymore now that Guild Master leads).
     local sectionNames = {
         "Guild Master", "Officer", "Recruitment", "Search", "Ads", "Stats", "Applications", "Roster", "Log",
-        "Mains / Alts", "Display", "Text", "About",
+        "Mains / Alts", "Display", "Text", "Backup", "About",
     }
     local y = -32
     for _, name in ipairs(sectionNames) do
@@ -3991,7 +4310,7 @@ local function CreateFramework()
 
             local badgeText = badge:CreateFontString(nil, "OVERLAY")
             badgeText:SetFont("Interface\\AddOns\\XalsRosterRoundup\\Fonts\\Inter-SemiBold.ttf", 11, "")
-            badgeText:SetTextColor(1, 1, 1, 1)
+            badgeText:SetTextColor(Brand.HOVER_COLOR[1], Brand.HOVER_COLOR[2], Brand.HOVER_COLOR[3])
             badgeText:SetPoint("CENTER")
 
             local function UpdateBadge()
